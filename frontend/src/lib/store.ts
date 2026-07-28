@@ -9,6 +9,7 @@
  */
 
 import { create } from "zustand";
+import { getOrCreateUserId } from "./user";
 import type {
   UserProfile,
   IngestionResult,
@@ -71,7 +72,7 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set, get) => ({
   // ── Identity ─────────────────────────────────────────────────────────
-  userId: "default",
+  userId: typeof window !== "undefined" ? getOrCreateUserId() : "default",
   profile: null,
   profileLoading: false,
   profileError: null,

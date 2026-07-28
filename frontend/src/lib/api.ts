@@ -4,6 +4,7 @@
  */
 
 import axios from "axios";
+import { getOrCreateUserId } from "./user";
 import type {
   IngestionResult,
   IngestionStatus,
@@ -29,7 +30,7 @@ const client = axios.create({
 
 export async function uploadFile(
   file: File,
-  userId: string = "default"
+  userId: string = getOrCreateUserId()
 ): Promise<IngestionResult> {
   const formData = new FormData();
   formData.append("file", file);
@@ -43,7 +44,7 @@ export async function uploadFile(
 
 export async function uploadLink(
   url: string,
-  userId: string = "default"
+  userId: string = getOrCreateUserId()
 ): Promise<IngestionResult> {
   const { data } = await client.post<IngestionResult>(
     `/api/ingest/link?user_id=${encodeURIComponent(userId)}`,
@@ -64,8 +65,10 @@ export async function getIngestionStatus(
 
 // ── Timeline ───────────────────────────────────────────────────────────
 
+// ── Timeline ───────────────────────────────────────────────────────────
+
 export async function getTimeline(
-  userId: string = "default",
+  userId: string = getOrCreateUserId(),
   year?: string,
   category?: string
 ): Promise<TimelineResponse> {
@@ -83,7 +86,7 @@ export async function getTimeline(
 
 export async function searchQuery(
   query: string,
-  userId: string = "default",
+  userId: string = getOrCreateUserId(),
   topK: number = 10,
   category?: string
 ): Promise<SearchResponse> {
@@ -100,7 +103,7 @@ export async function ragQuery(
 ): Promise<RAGAnswerResponse> {
   const { data } = await client.post<RAGAnswerResponse>(
     "/api/search/query",
-    { ...request, stream: false }
+    { user_id: getOrCreateUserId(), ...request, stream: false }
   );
   return data;
 }
@@ -122,7 +125,7 @@ export async function ragQueryStream(
   const response = await fetch(`${API_BASE}/api/search/query`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...request, stream: true }),
+    body: JSON.stringify({ user_id: getOrCreateUserId(), ...request, stream: true }),
   });
 
   if (!response.ok || !response.body) {
@@ -182,7 +185,7 @@ export async function facetedSearch(
 ): Promise<FacetedSearchResponse> {
   const { data } = await client.post<FacetedSearchResponse>(
     "/api/search/filter",
-    request
+    { user_id: getOrCreateUserId(), ...request }
   );
   return data;
 }
@@ -190,7 +193,7 @@ export async function facetedSearch(
 // ── Identity ───────────────────────────────────────────────────────────
 
 export async function getUserProfile(
-  userId: string = "default"
+  userId: string = getOrCreateUserId()
 ): Promise<UserProfile> {
   const { data } = await client.get<UserProfile>(`/api/identity/${userId}`);
   return data;
