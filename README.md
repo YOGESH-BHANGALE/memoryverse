@@ -182,13 +182,18 @@ flowchart TD
     SimilarSearch <-->|query - cosine similarity by entity_id| Chroma
 ```
 
-## ⚠️ Known Limitations & Known Bugs
+## ✅ Resolved Improvements & Fixes
+
+| Feature / Bug | Status | Technical Reality & Solution |
+|---------------|--------|------------------------------|
+| **Original File Retrieval** | **Resolved** | Upload pipeline saves raw file bytes to `UPLOAD_DIR` using a `file_id` indexed in ChromaDB metadata. Citations in Ask AI render clickable `GET /api/files/{file_id}` links opening original documents in browser. |
+| **`document_to_entity` Parsing Crash** | **Resolved** | Fixed `json.JSONDecodeError` crash on empty string metadata from demo-seeded entities which previously dropped skills/projects/certifications from the timeline. |
+
+## ⚠️ Known Limitations & Technical Realities
 
 | Feature / Issue | Status | Technical Reality & Honest Impact |
 |-----------------|--------|-----------------------------------|
-| **Original File Retrieval** | **Implemented** | Upload pipeline saves raw file bytes to `UPLOAD_DIR` with a `file_id` indexed in ChromaDB metadata. Citations in Ask AI render clickable `GET /api/files/{file_id}` links opening original documents in browser. |
 | **Module 3 Relationships** | **Vector Similarity** | Implemented as on-demand cosine vector search (`GET /api/search/similar/{entity_id}`) directly against ChromaDB rather than a standalone graph database. |
-| **`document_to_entity` Parsing Crash** | **Fixed** | Fixed `json.JSONDecodeError` crash on empty string metadata from demo-seeded entities which previously dropped skills/projects/certifications from the timeline. |
 | **Windows Memory Pressure / OOM** | **Known Issue** | `sentence-transformers` weight loading can fail under Windows virtual memory pressure (`OSError: paging file too small`). Restarting `uvicorn` loads from local disk cache. |
 
 ## License
