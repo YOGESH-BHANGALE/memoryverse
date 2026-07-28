@@ -1,0 +1,19 @@
+MemoryVerse AI — Playwright E2E Test Results
+=============================================
+Date: 2026-07-27T23:55:45+05:30
+Servers: Backend (uvicorn :8000), Frontend (next start :3000)
+
+Running 10 tests using 1 worker
+
+  ok  1 [chromium] › e2e\link.spec.ts:4:7 › Link Ingestion Flow › should accept a URL and process it (3.9s)
+  ok  2 [chromium] › e2e\navigation.spec.ts:4:7 › Navigation Smoke Test › should load main pages without errors (1.0s)
+  ok  3 [chromium] › e2e\search.spec.ts:8:7 › Search Flow Test › should render empty state initially (684ms)
+  ok  4 [chromium] › e2e\search.spec.ts:13:7 › Search Flow Test › should show loading state and then no results (2.1s)
+  ok  5 [chromium] › e2e\search.spec.ts:30:7 › Search Flow Test › should show loading state and then populated results (2.2s)
+  ok  6 [chromium] › e2e\timeline.spec.ts:4:7 › Timeline Flow Test › should render timeline view without crashing (5.5s)
+  ok  7 [chromium] › e2e\upload.spec.ts:9:7 › Upload Flow Test › should show error for invalid file type (665ms)
+  ok  8 [chromium] › e2e\upload.spec.ts:21:7 › Upload Flow Test › should show error for oversized file (610ms)
+  ok  9 [chromium] › e2e\upload.spec.ts:34:7 › Upload Flow Test › should show loading state and handle network error (2.2s)
+  ok 10 [chromium] › e2e\upload.spec.ts:52:7 › Upload Flow Test › should successfully upload a valid file (711ms)
+
+  10 passed (22.3s)

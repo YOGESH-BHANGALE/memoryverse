@@ -1,0 +1,35 @@
+# Core
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-dotenv
+python-multipart
+
+# File Parsing
+pypdf2
+pdfplumber
+python-docx
+
+# AI / LLM
+langchain
+langchain-groq
+langchain-huggingface
+langchain-community
+langchain-text-splitters
+tiktoken
+
+# Vector DB
+chromadb
+
+# Search / Retrieval
+rank-bm25
+numpy
+
+# Streaming
+sse-starlette
+
+# Utilities
+uuid6
+httpx
+aiofiles

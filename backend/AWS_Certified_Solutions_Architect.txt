@@ -1,0 +1,13 @@
+AWS CERTIFICATION OF ACHIEVEMENT
+
+This is to certify that
+YOGESH BHANGALE
+
+has successfully completed all requirements and is hereby recognized as an
+AWS Certified Solutions Architect – Associate
+
+Validation Number: AWS-9988776655
+Issue Date: August 15, 2024
+Expiration Date: August 15, 2027
+
+Skills Verified: Cloud Architecture, Amazon Web Services (AWS), Serverless Computing, DynamoDB, AWS Lambda, Security & Compliance, Identity and Access Management (IAM).

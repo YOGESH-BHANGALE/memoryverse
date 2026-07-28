@@ -1,0 +1,65 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 1136 >>
+stream
+BT
+/F1 12 Tf
+50 750 Td
+14 TL
+(INTERNSHIP OFFER LETTER) Tj T*
+() Tj T*
+(Date: June 1, 2024) Tj T*
+(To: Yogesh Bhangale) Tj T*
+() Tj T*
+(Dear Yogesh,) Tj T*
+() Tj T*
+(We are pleased to offer you an internship position at Acme Corp) Tj T*
+(as a Software Engineering Intern in the Platform Engineering team.) Tj T*
+() Tj T*
+(Duration: June 10, 2024 to August 30, 2024 \(12 weeks\)) Tj T*
+(Location: Pune, Maharashtra, India \(Hybrid\)) Tj T*
+(Stipend: INR 40,000 per month) Tj T*
+() Tj T*
+(Responsibilities:) Tj T*
+(- Build and maintain internal developer tools using Python and FastAPI) Tj T*
+(- Contribute to the CI/CD pipeline automation using GitHub Actions) Tj T*
+(- Participate in agile sprints, code reviews, and design discussions) Tj T*
+(- Work with PostgreSQL and Redis for backend data management) Tj T*
+() Tj T*
+(Technologies: Python, FastAPI, PostgreSQL, Redis, Docker, GitHub Actions) Tj T*
+() Tj T*
+(Reporting Manager: Ms. Priya Sharma \(Lead Engineer\)) Tj T*
+() Tj T*
+(Please sign and return this letter by June 5, 2024.) Tj T*
+() Tj T*
+(Sincerely,) Tj T*
+(HR Department, Acme Corp) Tj T*
+(hr@acmecorp.example.com) Tj T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000001429 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1499
+%%EOF

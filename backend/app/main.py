@@ -1,0 +1,97 @@
+"""
+MemoryVerse AI — FastAPI Application Entry Point
+"""
+
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import get_settings
+from app.api.routes import ingest, timeline, search, identity
+from app.utils.logger import logger
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifecycle — startup and shutdown."""
+    settings = get_settings()
+    logger.info("MemoryVerse AI starting up...")
+    logger.info(f"   ChromaDB path : {settings.chroma_path}")
+    logger.info(f"   Upload dir    : {settings.upload_path}")
+    logger.info(f"   LLM model     : {settings.groq_model}")
+    logger.info(f"   Embedding     : {settings.hf_embedding_model}")
+    yield
+    logger.info("👋 MemoryVerse AI shutting down…")
+
+
+app = FastAPI(
+    title="MemoryVerse AI",
+    description=(
+        "Personal knowledge management API — upload documents, extract structured "
+        "entities (skills, projects, certifications, internships, achievements), "
+        "build a journey timeline, and search with RAG."
+    ),
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# ── CORS ────────────────────────────────────────────────────────────────
+settings = get_settings()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origin_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ── Routers ─────────────────────────────────────────────────────────────
+app.include_router(ingest.router)
+app.include_router(timeline.router)
+app.include_router(search.router)
+app.include_router(identity.router)
+
+
+# ── File Serving ────────────────────────────────────────────────────────
+@app.get("/api/files/{file_id}", tags=["Files"])
+async def get_file(file_id: str):
+    """Serve original uploaded file by file_id."""
+    settings = get_settings()
+    upload_dir = settings.upload_path
+
+    # Search for matching file starting with file_id
+    matching_files = list(upload_dir.glob(f"{file_id}*"))
+    if not matching_files:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    target_file = matching_files[0]
+    filename = (
+        target_file.name.split("_", 1)[1]
+        if "_" in target_file.name
+        else target_file.name
+    )
+
+    return FileResponse(
+        path=target_file,
+        filename=filename,
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
+# ── Health Check ────────────────────────────────────────────────────────
+@app.get("/", tags=["Health"])
+async def root():
+    return {
+        "service": "MemoryVerse AI",
+        "status": "running",
+        "version": "1.0.0",
+    }
+
+
+@app.get("/health", tags=["Health"])
+async def health():
+    return {"status": "healthy"}

@@ -1,0 +1,18 @@
+from fpdf import FPDF
+
+pdf = FPDF()
+pdf.add_page()
+pdf.set_font("Helvetica", "B", 16)
+pdf.cell(0, 10, "GOOGLE CLOUD CERTIFICATION", new_x="LMARGIN", new_y="NEXT", align="C")
+pdf.ln(10)
+pdf.set_font("Helvetica", "", 12)
+pdf.cell(0, 10, "This is to certify that YOGESH BHANGALE", new_x="LMARGIN", new_y="NEXT")
+pdf.cell(0, 10, "has successfully completed all requirements for", new_x="LMARGIN", new_y="NEXT")
+pdf.set_font("Helvetica", "B", 14)
+pdf.cell(0, 10, "Google Cloud Certified - Professional Cloud Architect", new_x="LMARGIN", new_y="NEXT")
+pdf.set_font("Helvetica", "", 12)
+pdf.cell(0, 10, "Issue Date: October 10, 2024", new_x="LMARGIN", new_y="NEXT")
+pdf.cell(0, 10, "Credential ID: GCP-99881122", new_x="LMARGIN", new_y="NEXT")
+pdf.cell(0, 10, "Skills Verified: Google Cloud Platform (GCP), Kubernetes (GKE), Terraform, Cloud Security", new_x="LMARGIN", new_y="NEXT")
+pdf.output("Google_Cloud_Professional_Cloud_Architect.pdf")
+print("PDF created successfully")

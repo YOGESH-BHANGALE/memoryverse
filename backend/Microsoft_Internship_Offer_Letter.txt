@@ -1,0 +1,24 @@
+MICROSOFT CORPORATION
+1 Microsoft Way, Redmond, WA 98052
+
+INTERNSHIP OFFER AND CONFIRMATION LETTER
+
+Date: January 10, 2024
+
+Dear Yogesh Bhangale,
+
+On behalf of Microsoft Corporation, we are pleased to offer you the position of Software Engineering Intern for the Summer 2024 Internship Program.
+
+Position Details:
+- Role: Software Engineering Intern (Azure Cloud & AI Division)
+- Duration: May 20, 2024 – August 16, 2024
+- Location: Redmond, WA (Hybrid)
+- Manager: Sarah Jenkins, Principal Engineering Manager
+
+Responsibilities & Projects:
+During your internship, you will work with the Azure Cognitive Services team building scalable microservices in C# and Go, implementing distributed RAG caching strategies, and optimizing vector database query performance.
+
+We look forward to welcoming you to Microsoft!
+
+Sincerely,
+Microsoft University Recruiting Team
