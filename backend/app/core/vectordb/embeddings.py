@@ -50,8 +50,8 @@ class EmbeddingService:
         if not chunks:
             return 0
 
-        # Generate embeddings
-        vectors = await self.embeddings.aembed_documents(chunks)
+        formatted_chunks = [f"Document: {document.filename}\n\n{chunk}" for chunk in chunks]
+        vectors = await self.embeddings.aembed_documents(formatted_chunks)
 
         effective_file_id = file_id or document.file_id or ""
         ids = [f"{user_id}_{document.filename}_chunk_{i}" for i in range(len(chunks))]
@@ -69,7 +69,7 @@ class EmbeddingService:
         self.chroma.upsert(
             collection_name="raw_chunks",
             ids=ids,
-            documents=chunks,
+            documents=formatted_chunks,
             metadatas=metadatas,
             embeddings=vectors,
         )

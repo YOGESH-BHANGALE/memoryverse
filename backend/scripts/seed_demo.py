@@ -32,6 +32,13 @@ async def seed():
                 url="https://github.com/demo/digital-identity"
             ),
             Project(
+                name="Traveo — Ride Sharing Application", 
+                description="Developed a ride-sharing platform that connects users traveling to similar destinations using MEAN Stack and JWT Authentication.", 
+                tech_stack=["MongoDB", "Express.js", "Angular", "Node.js", "JWT Authentication"],
+                date_range="2024-01 - 2024-05",
+                url="https://github.com/YOGESH-BHANGALE/traveo"
+            ),
+            Project(
                 name="E-Commerce Platform", 
                 description="Full-stack marketplace with Stripe integration.", 
                 tech_stack=["React", "Node.js", "MongoDB"],

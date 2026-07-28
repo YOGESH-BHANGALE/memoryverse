@@ -198,7 +198,7 @@ class HybridRetriever:
 
         for col_name in collections:
             try:
-                where = {"user_id": user_id} if col_name != "raw_chunks" else None
+                where = {"user_id": user_id}
                 search = await self.embedding_service.search(
                     query=query,
                     collection_name=col_name,
@@ -244,7 +244,7 @@ class HybridRetriever:
         corpus: list[dict[str, Any]] = []
         for col_name in collections:
             try:
-                where = {"user_id": user_id} if col_name != "raw_chunks" else None
+                where = {"user_id": user_id}
                 result = self.chroma.get_all(
                     collection_name=col_name,
                     where=where,
@@ -274,7 +274,10 @@ class HybridRetriever:
         if not corpus:
             return []
 
-        tokenized_corpus = [_tokenize(doc["text"]) for doc in corpus]
+        tokenized_corpus = [
+            _tokenize(f"{doc['metadata'].get('source_file', '')} {doc['metadata'].get('title', '')} {doc['metadata'].get('category', '')} {doc['text']}")
+            for doc in corpus
+        ]
         # Filter out empty token lists to avoid BM25 issues
         valid_indices = [i for i, t in enumerate(tokenized_corpus) if t]
         if not valid_indices:
