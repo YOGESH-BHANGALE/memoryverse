@@ -1,8 +1,8 @@
 # MemoryVerse AI — Design Decisions & Thought Process
 
-## 1. LLM Choice: Groq + Llama 3.3-70B for Structured Extraction
+## 1. LLM Choice: Groq + Llama 3.1-8B-instant for Structured Extraction
 
-**What the plan said vs. what actually ships:** The initial implementation plan listed GPT-4o. The actual `.env` and runtime configuration use `GROQ_MODEL=llama-3.3-70b-versatile` with a Groq API key. This was a deliberate substitution made during development.
+**What the plan said vs. what actually ships:** The initial implementation plan listed GPT-4o. The actual `.env` and runtime configuration use `GROQ_MODEL=llama-3.1-8b-instant` with a Groq API key. This was a deliberate substitution made during development.
 
 **Why Groq/Llama instead of GPT-4o:**
 

@@ -9,7 +9,7 @@
 | Layer       | Technology                                  |
 |-------------|---------------------------------------------|
 | Backend     | FastAPI + Python 3.11                       |
-| LLM         | Groq (Llama 3.3-70B-versatile) + LangChain  |
+| LLM         | Groq (Llama 3.1-8B-instant) + LangChain    |
 | Embeddings  | Sentence-Transformers (`all-MiniLM-L6-v2`)  |
 | Vector DB   | ChromaDB (persistent)                       |
 | Frontend    | Next.js 14 + TypeScript + TailwindCSS       |
