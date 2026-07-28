@@ -24,6 +24,16 @@ async def lifespan(app: FastAPI):
     logger.info(f"   Upload dir    : {settings.upload_path}")
     logger.info(f"   LLM model     : {settings.groq_model}")
     logger.info(f"   Embedding     : {settings.hf_embedding_model}")
+    
+    # Pre-warm embedding service & ChromaDB client on startup
+    from app.api.deps import get_embedding_service, get_chroma_client
+    try:
+        get_embedding_service()
+        get_chroma_client()
+        logger.info("Pre-warmed EmbeddingService & ChromaClient weights successfully.")
+    except Exception as e:
+        logger.warning(f"EmbeddingService pre-warm warning: {e}")
+        
     yield
     logger.info("👋 MemoryVerse AI shutting down…")
 

@@ -44,8 +44,9 @@ class HybridRetriever:
     """
 
     def __init__(self) -> None:
-        self.embedding_service = EmbeddingService()
-        self.chroma = ChromaClient()
+        from app.api.deps import get_embedding_service, get_chroma_client
+        self.embedding_service = get_embedding_service()
+        self.chroma = get_chroma_client()
 
     # ── Public API ──────────────────────────────────────────────────────
 

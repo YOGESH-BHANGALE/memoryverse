@@ -72,7 +72,8 @@ class RAGChain:
 
     def __init__(self) -> None:
         settings = get_settings()
-        self.retriever = HybridRetriever()
+        from app.api.deps import get_hybrid_retriever
+        self.retriever = get_hybrid_retriever()
         self.llm = ChatGroq(
             model=settings.groq_model,
             api_key=settings.groq_api_key,

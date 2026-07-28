@@ -1,0 +1,140 @@
+=== BACKEND RAG QUERY AUDIT ===
+
+QUERY: 'Show all my certificates'
+ANSWER:
+Based on the provided context, the following certificates are mentioned:
+* Google Cloud Certified - Professional Cloud Architect, issued by Google on October 10, 2024, with credential ID GCP-99881122
+* AWS Certified Solutions Architect – Associate, issued on August 15, 2024, with validation number AWS-9988776655, expiring on August 15, 2027
+
+Sources: 
+[1] Google Cloud Certified - Professional Cloud Architect, 
+[5] AWS_Certified_Solutions_Architect.txt
+
+📎 **Sources:**
+• Google Cloud Certified - Professional Cloud Architect (certifications, relevance: 31%)
+• https://github.com/expressjs/express (raw_chunks, relevance: 28%)
+• https://github.com/microsoft/playwright (raw_chunks, relevance: 20%)
+• AI Digital Identity System (projects, relevance: 28%)
+• AWS_Certified_Solutions_Architect.txt (raw_chunks, relevance: 27%)
+• Security & Compliance (skills, relevance: 22%)
+• https://github.com/adityaa-nikam (raw_chunks, relevance: 24%)
+• Software Engineering Intern @ Acme Corp (internships, relevance: 21%)
+SOURCES RETURNED (10):
+  - [None] None (score: 0.31, file_id: None)
+  - [None] None (score: 0.28, file_id: None)
+  - [None] None (score: 0.20, file_id: None)
+  - [None] None (score: 0.28, file_id: None)
+  - [None] None (score: 0.27, file_id: None)
+  - [None] None (score: 0.14, file_id: None)
+  - [None] None (score: 0.22, file_id: None)
+  - [None] None (score: 0.24, file_id: None)
+  - [None] None (score: 0.21, file_id: None)
+  - [None] None (score: 0.17, file_id: None)
+
+QUERY: 'Show my internship documents'
+ANSWER:
+Based on the provided context, the following internship documents are available:
+* Acme Corp Internship Offer Letter (June 1, 2024) for a Software Engineering Intern position
+* Microsoft Internship Offer Letter (January 10, 2024) for a Software Engineering Intern position in the Azure Cloud & AI Division
+* Software Engineering Intern @ Google (May 2024 - August 2024)
+* Software Engineering Intern @ Acme Corp (June 10, 2024 - August 30, 2024)
+* Software Engineering Intern @ Microsoft Corporation (May 20, 2024 - August 16, 2024)
+
+Sources: 
+[1] Acme_Corp_Internship_Offer.pdf, 
+[3] Microsoft_Internship_Offer_Letter.txt, 
+[4] Software Engineering Intern @ Google, 
+[6] Microsoft_Internship_Offer_Letter.txt, 
+[8] Software Engineering Intern @ Acme Corp, 
+[10] Software Engineering Intern @ Microsoft Corporation
+
+📎 **Sources:**
+• Acme_Corp_Internship_Offer.pdf (raw_chunks, relevance: 42%)
+• demo_seed.json (skills, relevance: 32%)
+• Microsoft_Internship_Offer_Letter.txt (raw_chunks, relevance: 34%)
+• Software Engineering Intern @ Google (internships, relevance: 38%)
+• https://github.com/adityaa-nikam (raw_chunks, relevance: 18%)
+• Identity and Access Management (IAM) (skills, relevance: 23%)
+• Software Engineering Intern @ Acme Corp (internships, relevance: 41%)
+• https://github.com/microsoft/playwright (raw_chunks, relevance: 17%)
+• Software Engineering Intern @ Microsoft Corporation (internships, relevance: 37%)
+SOURCES RETURNED (10):
+  - [None] None (score: 0.42, file_id: a9d949d7-ce3e-4919-a0ac-cf737399a6eb)
+  - [None] None (score: 0.32, file_id: None)
+  - [None] None (score: 0.34, file_id: 903f6886-5d9b-40ce-b911-654e7f5ce482)
+  - [None] None (score: 0.38, file_id: None)
+  - [None] None (score: 0.18, file_id: None)
+  - [None] None (score: 0.36, file_id: 903f6886-5d9b-40ce-b911-654e7f5ce482)
+  - [None] None (score: 0.23, file_id: None)
+  - [None] None (score: 0.41, file_id: None)
+  - [None] None (score: 0.17, file_id: None)
+  - [None] None (score: 0.37, file_id: None)
+
+QUERY: 'Show my latest resume'
+ANSWER:
+I don't have enough information in your documents to answer that. The provided context passages do not contain a resume.
+
+Sources: 
+* Software Engineering Intern @ Acme Corp
+* https://github.com/expressjs/express
+* https://github.com/expressjs/express
+* demo_seed.json
+* AWS_Certified_Solutions_Architect.txt
+* https://github.com/adityaa-nikam
+* SSD-Benchmark-Tool
+* https://github.com/expressjs/express
+* Microsoft_Internship_Offer_Letter.txt
+* PERPAGE-Academic-Help-Platform
+
+📎 **Sources:**
+• Software Engineering Intern @ Acme Corp (internships, relevance: 32%)
+• https://github.com/expressjs/express (raw_chunks, relevance: 26%)
+• demo_seed.json (skills, relevance: 24%)
+• AWS_Certified_Solutions_Architect.txt (raw_chunks, relevance: 19%)
+• https://github.com/adityaa-nikam (raw_chunks, relevance: 23%)
+• SSD-Benchmark-Tool (projects, relevance: 14%)
+• Microsoft_Internship_Offer_Letter.txt (raw_chunks, relevance: 15%)
+• PERPAGE-Academic-Help-Platform (projects, relevance: 18%)
+SOURCES RETURNED (10):
+  - [None] None (score: 0.32, file_id: None)
+  - [None] None (score: 0.26, file_id: None)
+  - [None] None (score: 0.18, file_id: None)
+  - [None] None (score: 0.24, file_id: None)
+  - [None] None (score: 0.19, file_id: None)
+  - [None] None (score: 0.23, file_id: None)
+  - [None] None (score: 0.14, file_id: None)
+  - [None] None (score: 0.14, file_id: None)
+  - [None] None (score: 0.15, file_id: 903f6886-5d9b-40ce-b911-654e7f5ce482)
+  - [None] None (score: 0.18, file_id: None)
+
+QUERY: 'Show my AI projects'
+ANSWER:
+Based on the provided context, your AI projects include:
+* Building an AI knowledge system that won first place out of 500 teams in the Global AI Hackathon
+* Building an intelligent knowledge repository using FastAPI, Next.js, and ChromaDB for the AI Digital Identity System
+
+Sources:
+[1] First Place - Global AI Hackathon
+[10] AI Digital Identity System
+
+📎 **Sources:**
+• First Place - Global AI Hackathon (achievements, relevance: 45%)
+• Yogesh_Bhangale_Resume (1).pdf (raw_chunks, relevance: 40%)
+• https://github.com/microsoft/playwright (raw_chunks, relevance: 37%)
+• Question Bank_Environment Awareness.pdf (raw_chunks, relevance: 22%)
+• AI (skills, relevance: 37%)
+• Acme_Corp_Internship_Offer.pdf (raw_chunks, relevance: 29%)
+• https://github.com/adityaa-nikam (raw_chunks, relevance: 20%)
+• https://github.com/YOGESH-BHANGALE (raw_chunks, relevance: 23%)
+• AI Digital Identity System (projects, relevance: 32%)
+SOURCES RETURNED (10):
+  - [None] None (score: 0.45, file_id: None)
+  - [None] None (score: 0.40, file_id: None)
+  - [None] None (score: 0.37, file_id: None)
+  - [None] None (score: 0.22, file_id: None)
+  - [None] None (score: 0.32, file_id: None)
+  - [None] None (score: 0.37, file_id: 903f6886-5d9b-40ce-b911-654e7f5ce482)
+  - [None] None (score: 0.29, file_id: a9d949d7-ce3e-4919-a0ac-cf737399a6eb)
+  - [None] None (score: 0.20, file_id: None)
+  - [None] None (score: 0.23, file_id: None)
+  - [None] None (score: 0.32, file_id: None)

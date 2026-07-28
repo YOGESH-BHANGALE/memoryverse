@@ -1,0 +1,16 @@
+ACADEMIC TRANSCRIPT & DEGREE CERTIFICATE
+
+Institution: XYZ University of Technology
+Degree: Bachelor of Technology (B.Tech) in Computer Science & Engineering
+Graduation Period: August 2020 – May 2024
+Cumulative Grade Point Average (CGPA): 8.5 / 10.0
+Honors: First Class with Distinction
+
+Academic Courses & Performance:
+- Data Structures & Algorithms: Grade A
+- Operating Systems & System Programming: Grade A+
+- Database Management Systems (DBMS): Grade A
+- Artificial Intelligence & Machine Learning: Grade A+
+- Computer Networks & Security: Grade A
+
+Degree Awarded on May 25, 2024 by the Senate of XYZ University of Technology.
