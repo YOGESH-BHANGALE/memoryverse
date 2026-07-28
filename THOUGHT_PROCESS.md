@@ -51,8 +51,10 @@ The retrieval pipeline in `retriever.py` implements a multi-signal hybrid retrie
 
 ---
 
-## 5. Original File Storage & Known Limitations
+## 5. File Storage, User Identification & Technical Scope
 
 - **Original File Serving (Wired & Implemented):** The ingestion pipeline saves raw document bytes to `UPLOAD_DIR` using a unique `file_id`. The `file_id` is indexed into ChromaDB document metadata for both raw chunks and extracted entities. Source citations returned by `HybridRetriever` include `file_id`, enabling the frontend search UI to render clickable links pointing to `GET /api/files/{file_id}` which streams original PDF/TXT files directly in the browser viewer.
+- **Lightweight Cookie-Based User Identification (Wired & Implemented):** User identity is managed via a zero-friction, no-login client identification system (`getOrCreateUserId()`). On first visit, a random v4 UUID (`usr_...`) is generated and stored in a 1-year browser cookie (`memoryverse_user_id`) and `localStorage`. Every frontend API request transmits this `user_id`, which the backend filters against via ChromaDB `where={"user_id": user_id}` queries.
+  - **Honest Scope & Tradeoffs:** This system provides real per-browser data isolation (preventing different visitors from seeing each other's uploaded documents, timelines, or search results) without requiring user registration or passwords. However, it is not full authentication: there are no persistent user accounts across devices, and clearing browser cookies resets the local session ID.
 - **In-Memory BM25 Corpus Build:** BM25 corpus construction happens in memory on each search request. While performant for personal-scale knowledge bases (< 1,000 entities), larger enterprise datasets would require a persistent lexical index (e.g., Elasticsearch or Tantivy).
 - **Windows Paging File Memory Pressure:** Under high system memory utilization, initial loading of `sentence-transformers` embedding model weights can trigger a Windows virtual memory allocation error. Pre-loading model weights during server startup resolves this issue.

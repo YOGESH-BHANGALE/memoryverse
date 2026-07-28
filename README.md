@@ -162,7 +162,7 @@ flowchart TD
     class Data data
 
     %% External Services
-    LLM_API((Groq / OpenAI API))
+    LLM_API((Groq API))
     class LLM_API external
 
     %% Connections
