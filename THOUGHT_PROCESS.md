@@ -1,14 +1,19 @@
 # MemoryVerse AI — Design Decisions & Thought Process
 
-## 1. LLM Choice: Groq + Llama 3.1-8B-instant for Structured Extraction
+## 1. LLM Choice: Groq + Llama 3.3-70B-versatile (with 8B Fallback)
 
-**What the plan said vs. what actually ships:** The initial implementation plan listed GPT-4o. The actual `.env` and runtime configuration use `GROQ_MODEL=llama-3.1-8b-instant` with a Groq API key. This was a deliberate substitution made during development.
+**What the plan said vs. what actually ships:** The initial implementation plan listed GPT-4o. The actual `.env` and runtime configuration use `GROQ_MODEL=llama-3.3-70b-versatile` with a Groq API key. This was a deliberate substitution made during development.
 
 **Why Groq/Llama instead of GPT-4o:**
 
-The core extraction task — parsing raw document text and outputting a structured JSON of skills, certifications, internships, projects, and achievements — is fundamentally a structured extraction problem rather than a long-form reasoning problem. Groq's custom LPU hardware delivers inference for Llama 3.3-70B at token speeds 5–10× faster than standard OpenAI API calls, completely free of per-token API costs during development. For a hackathon project with frequent test document uploads and interactive iteration, this speed and zero-cost profile was a key advantage.
+The core extraction task — parsing raw document text and outputting a structured JSON of skills, certifications, internships, projects, and achievements — is fundamentally a structured extraction problem rather than a long-form reasoning problem. Groq's custom LPU hardware delivers inference for Llama 3.3-70B at token speeds 5–10× faster than standard OpenAI API calls, completely free of per-token API costs during development.
 
-**Tradeoffs accepted:** Llama 3.3-70B occasionally produces slight formatting variance that requires retries in the extraction pipeline. GPT-4o with native function calling offers slightly tighter JSON schema adherence out of the box. However, because the backend relies on LangChain abstractions, switching back to GPT-4o in production requires only updating the model name and API key in `.env`.
+**Primary Model vs. Fallback Strategy:**
+
+- **Primary (`llama-3.3-70b-versatile`):** Selected for maximum extraction depth, nuanced field capture (e.g., specific Credential IDs, exact institution names), and superior zero-shot entity classification across complex document layouts.
+- **Fallback (`llama-3.1-8b-instant`):** Documented as a lightweight, high-throughput fallback option (14.4M TPD vs 100K TPD on Groq's free tier) to ensure system availability if rate limits (HTTP 429) are encountered during heavy automated testing windows.
+
+**Tradeoffs accepted:** `llama-3.3-70b-versatile` on Groq's free tier has a daily limit of 100,000 Tokens Per Day (TPD), which resets every 24 hours UTC. For high-volume automated testing sessions, switching to `llama-3.1-8b-instant` maintains operational availability with slightly lower extraction granularity. Switching between models requires only updating `GROQ_MODEL` in `backend/.env`.
 
 ---
 
