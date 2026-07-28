@@ -45,7 +45,9 @@ Rules:
 - Extract dates in any format you find (e.g. "Jan 2023", "2023-01", "2023").
 - For skills, infer the level (beginner/intermediate/advanced) from context if possible.
 - For tech_stack, list individual technologies as separate strings.
-- Be exhaustive: extract EVERY entity mentioned, even if partially described.
+- Be exhaustive: extract EVERY legitimate entity mentioned, even if partially described.
+- CRITICAL: Do NOT extract the candidate's name, person's name, or document owner as a certification, skill, project, internship, achievement, or academic entity.
+- CRITICAL: Do NOT extract generic document headers or document titles (e.g. "Resume", "CV", "Contact Information") as entities.
 """
 
 _HUMAN_PROMPT = """\
