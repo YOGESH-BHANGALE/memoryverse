@@ -5,6 +5,7 @@ Embeddings — text chunking and embedding generation using OpenAI via LangChain
 from __future__ import annotations
 
 from typing import Any
+import torch
 
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
