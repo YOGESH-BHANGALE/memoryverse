@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Any
 import torch
 
+from langchain_core.embeddings import Embeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -17,7 +18,7 @@ from app.core.vectordb.client import ChromaClient
 from app.utils.logger import logger
 
 
-class ONNXEmbeddingsFallback:
+class ONNXEmbeddingsFallback(Embeddings):
     """Fast, zero-PyTorch fallback embedding model using ONNX all-MiniLM-L6-v2."""
 
     def __init__(self) -> None:
@@ -26,16 +27,18 @@ class ONNXEmbeddingsFallback:
         self._ef = embedding_functions.DefaultEmbeddingFunction()
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return self._ef(texts)
+        res = self._ef(texts)
+        return [[float(x) for x in vec] for vec in res]
 
     async def aembed_documents(self, texts: list[str]) -> list[list[float]]:
-        return self._ef(texts)
+        return self.embed_documents(texts)
 
     def embed_query(self, text: str) -> list[float]:
-        return self._ef([text])[0]
+        res = self._ef([text])[0]
+        return [float(x) for x in res]
 
     async def aembed_query(self, text: str) -> list[float]:
-        return self._ef([text])[0]
+        return self.embed_query(text)
 
 
 class EmbeddingService:
