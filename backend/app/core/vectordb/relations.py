@@ -41,6 +41,7 @@ class RelationshipEngine:
     def build_relations(
         self,
         entities: list[CategorisedEntity],
+        user_id: str = "default",
     ) -> list[dict[str, Any]]:
         """
         Analyse a list of entities and return discovered relations.

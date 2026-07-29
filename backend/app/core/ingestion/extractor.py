@@ -101,8 +101,24 @@ class EntityExtractor:
                 {"document_text": document_text}
             )
         except Exception as exc:
-            logger.error(f"LLM extraction failed: {exc}")
-            return ExtractionResult()
+            logger.warning(
+                f"Primary LLM model failed ({exc}). Attempting fallback to llama-3.1-8b-instant..."
+            )
+            try:
+                settings = get_settings()
+                fallback_llm = ChatGroq(
+                    model="llama-3.1-8b-instant",
+                    api_key=settings.groq_api_key,
+                    temperature=0,
+                    max_tokens=4096,
+                )
+                fallback_chain = self.prompt | fallback_llm | self.parser
+                raw = await fallback_chain.ainvoke(
+                    {"document_text": document_text}
+                )
+            except Exception as exc2:
+                logger.error(f"LLM extraction fallback failed: {exc2}")
+                return ExtractionResult()
 
         return self._parse_result(raw)
 
