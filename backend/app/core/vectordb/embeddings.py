@@ -17,6 +17,27 @@ from app.core.vectordb.client import ChromaClient
 from app.utils.logger import logger
 
 
+class ONNXEmbeddingsFallback:
+    """Fast, zero-PyTorch fallback embedding model using ONNX all-MiniLM-L6-v2."""
+
+    def __init__(self) -> None:
+        from chromadb.utils import embedding_functions
+
+        self._ef = embedding_functions.DefaultEmbeddingFunction()
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return self._ef(texts)
+
+    async def aembed_documents(self, texts: list[str]) -> list[list[float]]:
+        return self._ef(texts)
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._ef([text])[0]
+
+    async def aembed_query(self, text: str) -> list[float]:
+        return self._ef([text])[0]
+
+
 class EmbeddingService:
     """
     Handles:
@@ -27,9 +48,20 @@ class EmbeddingService:
 
     def __init__(self) -> None:
         settings = get_settings()
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name=settings.hf_embedding_model,
-        )
+        try:
+            emb = HuggingFaceEmbeddings(
+                model_name=settings.hf_embedding_model,
+            )
+            emb.embed_query("test")
+            self.embeddings = emb
+            logger.info("Using HuggingFaceEmbeddings (SentenceTransformers)")
+        except Exception as e:
+            logger.warning(
+                f"HuggingFaceEmbeddings warning ({e}). "
+                "Falling back to ONNX DefaultEmbeddingFunction..."
+            )
+            self.embeddings = ONNXEmbeddingsFallback()
+
         self.splitter = RecursiveCharacterTextSplitter(
             chunk_size=512,
             chunk_overlap=50,
