@@ -2,7 +2,13 @@
 MemoryVerse AI — FastAPI Application Entry Point
 """
 
-from __future__ import annotations
+import os
+
+# Prevent OpenBLAS / PyTorch memory allocation errors on Windows
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 from contextlib import asynccontextmanager
 
