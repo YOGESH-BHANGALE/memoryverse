@@ -1,16 +1,16 @@
 """
-LLM Structured Extraction — uses LangChain + OpenAI to extract typed entities
-from raw document text via function calling / structured output.
+LLM Structured Extraction — uses LangChain + Groq to extract typed entities
+from raw document text via structured JSON output.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
 
 from app.config import get_settings
 from app.models.schemas import (
@@ -48,6 +48,7 @@ Rules:
 - Be exhaustive: extract EVERY legitimate entity mentioned, even if partially described.
 - CRITICAL: Do NOT extract the candidate's name, person's name, or document owner as a certification, skill, project, internship, achievement, or academic entity.
 - CRITICAL: Do NOT extract generic document headers or document titles (e.g. "Resume", "CV", "Contact Information") as entities.
+- Return ONLY the JSON object with no additional text, commentary, or markdown.
 """
 
 _HUMAN_PROMPT = """\
@@ -60,10 +61,34 @@ Extract all entities as JSON.
 """
 
 
+def _extract_json(text: str) -> dict[str, Any]:
+    """Extract a JSON object from LLM response text, handling markdown fences."""
+    # Try to find JSON in markdown code fences first
+    fence_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
+    if fence_match:
+        text = fence_match.group(1).strip()
+
+    # Try direct parse
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Try to find the first { ... } block
+    brace_match = re.search(r"\{.*\}", text, re.DOTALL)
+    if brace_match:
+        try:
+            return json.loads(brace_match.group(0))
+        except json.JSONDecodeError:
+            pass
+
+    raise ValueError(f"Could not extract valid JSON from LLM response: {text[:200]}...")
+
+
 class EntityExtractor:
     """
-    Uses GPT-4o (or configured model) with structured output parsing
-    to extract typed entities from raw document text.
+    Uses Groq LLM with direct JSON parsing to extract typed entities
+    from raw document text.
     """
 
     def __init__(self) -> None:
@@ -78,8 +103,15 @@ class EntityExtractor:
             ("system", _SYSTEM_PROMPT),
             ("human", _HUMAN_PROMPT),
         ])
-        self.parser = JsonOutputParser()
-        self.chain = self.prompt | self.llm | self.parser
+        # Use prompt | llm only — parse JSON manually to avoid
+        # langchain-core _type serialization bugs
+        self.chain = self.prompt | self.llm
+
+    async def _invoke_and_parse(self, chain, document_text: str) -> dict[str, Any]:
+        """Invoke a prompt|llm chain and extract JSON from the response."""
+        response = await chain.ainvoke({"document_text": document_text})
+        content = response.content if hasattr(response, "content") else str(response)
+        return _extract_json(content)
 
     async def extract(self, document_text: str) -> ExtractionResult:
         """
@@ -97,8 +129,8 @@ class EntityExtractor:
             document_text = document_text[:max_chars]
 
         try:
-            raw: dict[str, Any] = await self.chain.ainvoke(
-                {"document_text": document_text}
+            raw: dict[str, Any] = await self._invoke_and_parse(
+                self.chain, document_text
             )
         except Exception as exc:
             logger.warning(
@@ -112,9 +144,9 @@ class EntityExtractor:
                     temperature=0,
                     max_tokens=4096,
                 )
-                fallback_chain = self.prompt | fallback_llm | self.parser
-                raw = await fallback_chain.ainvoke(
-                    {"document_text": document_text}
+                fallback_chain = self.prompt | fallback_llm
+                raw = await self._invoke_and_parse(
+                    fallback_chain, document_text
                 )
             except Exception as exc2:
                 logger.error(f"LLM extraction fallback failed: {exc2}")
