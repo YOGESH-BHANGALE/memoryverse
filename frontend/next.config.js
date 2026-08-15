@@ -3,10 +3,15 @@ const nextConfig = {
   output: "standalone",
   reactStrictMode: true,
   async rewrites() {
+    const backendUrl =
+      process.env.NEXT_PUBLIC_API_URL ||
+      process.env.NEXT_PUBLIC_API_BASE_URL ||
+      process.env.API_URL ||
+      "https://memoryverse-backend-bju3.onrender.com";
     return [
       {
         source: "/api/:path*",
-        destination: `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/:path*`,
+        destination: `${backendUrl}/api/:path*`,
       },
     ];
   },

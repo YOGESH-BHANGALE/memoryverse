@@ -20,15 +20,14 @@ import type {
   SimilarEntityResponse,
 } from "./types";
 
-// In the browser on Vercel, use relative URLs so requests go through
-// Next.js rewrites (same-origin, no CORS issues).
-// Only use the full backend URL for local dev or server-side contexts.
+const LIVE_BACKEND_URL = "https://memoryverse-backend-bju3.onrender.com";
+
 const API_BASE =
-  typeof window !== "undefined" && window.location.hostname !== "localhost"
-    ? ""  // production browser: use relative URLs → Vercel rewrites
-    : process.env.NEXT_PUBLIC_API_URL ||
-      process.env.NEXT_PUBLIC_API_BASE_URL ||
-      "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  (typeof window !== "undefined" && window.location.hostname === "localhost"
+    ? "http://localhost:8000"
+    : LIVE_BACKEND_URL);
 
 const client = axios.create({
   baseURL: API_BASE,
