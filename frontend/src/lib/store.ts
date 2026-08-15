@@ -10,6 +10,7 @@
 
 import { create } from "zustand";
 import { getOrCreateUserId } from "./user";
+import { agentLog } from "./debugLog";
 import type {
   UserProfile,
   IngestionResult,
@@ -108,6 +109,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
     try {
       set({ uploadProgress: "Processing with AI…" });
+      // #region agent log
+      agentLog({runId:'pre-fix',hypothesisId:'B,E',location:'store.ts:doUpload',message:'Upload start',data:{fileName:file?.name,fileSize:file?.size,storeUserIdPrefix:get().userId?.slice?.(0,8),isDefault:get().userId==='default'}});
+      // #endregion
       const result = await uploadFile(file, get().userId);
       set({ uploadResult: result, uploadLoading: false, uploadProgress: "Done" });
       // Refresh profile after upload

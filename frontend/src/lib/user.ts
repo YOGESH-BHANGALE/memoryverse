@@ -4,6 +4,8 @@
  * and returns it for use with all API requests — replacing hardcoded "default".
  */
 
+import { agentLog } from "./debugLog";
+
 const USER_ID_KEY = "memoryverse_user_id";
 
 function getCookie(name: string): string | null {
@@ -51,6 +53,10 @@ export function getOrCreateUserId(): string {
   try {
     localStorage.setItem(USER_ID_KEY, userId);
   } catch {}
+
+  // #region agent log
+  agentLog({runId:'pre-fix',hypothesisId:'B,E',location:'user.ts:getOrCreateUserId',message:'Resolved user id',data:{userIdPrefix:userId?.slice?.(0,8),isDefault:userId==='default',host:typeof window!=='undefined'?window.location.host:null,protocol:typeof window!=='undefined'?window.location.protocol:null,isSecureContext:typeof window!=='undefined'?window.isSecureContext:null,hasCryptoUUID:typeof crypto!=='undefined'&&!!crypto.randomUUID}});
+  // #endregion
 
   return userId;
 }

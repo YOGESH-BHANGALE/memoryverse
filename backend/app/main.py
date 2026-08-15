@@ -12,7 +12,11 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+import json
+from pathlib import Path
+from time import time
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -70,6 +74,39 @@ app.add_middleware(
 )
 
 # ── Routers ─────────────────────────────────────────────────────────────
+# #region agent log
+_DEBUG_LOG = Path(r"e:\MEMORYVERSE HAKATHPN\debug-2cda69.log")
+
+@app.middleware("http")
+async def debug_request_log(request: Request, call_next):
+    try:
+        origin = request.headers.get("origin")
+        host = request.headers.get("host")
+        client = request.client.host if request.client else None
+        line = json.dumps({
+            "sessionId": "2cda69",
+            "runId": "pre-fix",
+            "hypothesisId": "A,C,D",
+            "location": "main.py:middleware",
+            "message": "Incoming HTTP request",
+            "data": {
+                "path": str(request.url.path),
+                "method": request.method,
+                "origin": origin,
+                "host": host,
+                "client": client,
+            },
+            "timestamp": int(time() * 1000),
+        }) + "\n"
+        for p in (_DEBUG_LOG, Path(r"e:\MEMORYVERSE HAKATHPN\.cursor\debug-2cda69.log")):
+            p.parent.mkdir(parents=True, exist_ok=True)
+            with p.open("a", encoding="utf-8") as f:
+                f.write(line)
+    except Exception:
+        pass
+    return await call_next(request)
+# #endregion
+
 app.include_router(ingest.router)
 app.include_router(timeline.router)
 app.include_router(search.router)

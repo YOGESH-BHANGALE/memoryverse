@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { getOrCreateUserId } from "@/lib/user";
+import { agentLog } from "@/lib/debugLog";
 
 const navLinks = [
   { href: "/upload", label: "Upload", icon: "📤" },
@@ -24,6 +25,24 @@ export const Navbar: React.FC = () => {
     if (id && id !== userId) {
       setUserId(id);
     }
+    // #region agent log
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    agentLog({runId:'pre-fix',hypothesisId:'A,C,D',location:'Navbar.tsx:mount',message:'Navbar mounted',data:{apiBase,pageHost:window.location.host,pageHref:window.location.href,storeUserIdPrefix:userId?.slice?.(0,8),resolvedIdPrefix:id?.slice?.(0,8)}});
+    fetch(`${apiBase}/health`)
+      .then((r) => {
+        agentLog({runId:'pre-fix',hypothesisId:'A,C,D',location:'Navbar.tsx:health',message:'Health probe result',data:{ok:r.ok,status:r.status,apiBase,pageHost:window.location.host}});
+      })
+      .catch((err) => {
+        agentLog({runId:'pre-fix',hypothesisId:'A,C,D',location:'Navbar.tsx:health',message:'Health probe failed',data:{error:String(err),apiBase,pageHost:window.location.host,pageHref:window.location.href}});
+      });
+    fetch("http://127.0.0.1:8000/health")
+      .then((r) => {
+        agentLog({runId:'pre-fix',hypothesisId:'A',location:'Navbar.tsx:health127',message:'127.0.0.1 health result',data:{ok:r.ok,status:r.status}});
+      })
+      .catch((err) => {
+        agentLog({runId:'pre-fix',hypothesisId:'A',location:'Navbar.tsx:health127',message:'127.0.0.1 health failed',data:{error:String(err)}});
+      });
+    // #endregion
   }, [setUserId, userId]);
 
   const displayId = mounted && userId ? `${userId.substring(0, 8)}…` : "";

@@ -5,6 +5,7 @@
 
 import axios from "axios";
 import { getOrCreateUserId } from "./user";
+import { agentLog } from "./debugLog";
 import type {
   IngestionResult,
   IngestionStatus,
@@ -28,6 +29,28 @@ const client = axios.create({
   baseURL: API_BASE,
   timeout: 120_000, // 2 minutes for large uploads
 });
+
+client.interceptors.request.use((config) => {
+  // #region agent log
+  agentLog({runId:'pre-fix',hypothesisId:'A,C,D',location:'api.ts:request',message:'API request',data:{baseURL:API_BASE,url:config.url,method:config.method,pageHost:typeof window!=='undefined'?window.location.host:null,pageHref:typeof window!=='undefined'?window.location.href:null}});
+  // #endregion
+  return config;
+});
+
+client.interceptors.response.use(
+  (response) => {
+    // #region agent log
+    agentLog({runId:'pre-fix',hypothesisId:'A,C,D',location:'api.ts:response',message:'API success',data:{status:response.status,url:response.config?.url}});
+    // #endregion
+    return response;
+  },
+  (error) => {
+    // #region agent log
+    agentLog({runId:'pre-fix',hypothesisId:'A,C,D',location:'api.ts:error',message:'API error',data:{code:error?.code,message:error?.message,status:error?.response?.status,detail:error?.response?.data?.detail,baseURL:API_BASE}});
+    // #endregion
+    return Promise.reject(error);
+  }
+);
 
 // ── Ingestion ──────────────────────────────────────────────────────────
 
