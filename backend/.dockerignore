@@ -1,0 +1,29 @@
+# Secrets — never bake real credentials into an image layer
+.env
+.env.*
+!.env.example
+
+# Python virtualenv (huge, host-OS-specific — a Windows venv breaks on Linux)
+venv/
+.venv/
+env/
+
+# Caches / bytecode
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local, ephemeral, or regenerated data — must NOT ship in the image
+chroma_db/
+uploads/
+backups/
+
+# Dev / test / scratch artifacts
+tests/
+test_*.py
+*.output
+*.log
+.DS_Store

@@ -3,6 +3,7 @@ Search API — Phase 4: NL question answering, similar entities, faceted search.
 
 Endpoints:
 - POST /api/search/query          — NL question → answer + sources (+ SSE streaming)
+- GET  /api/search/documents      — original files, newest first (Module 1 retrieval)
 - GET  /api/search/similar/{id}   — find similar entities
 - POST /api/search/filter         — structured faceted search
 - GET  /api/search/               — legacy simple search (backwards compat)
@@ -17,7 +18,9 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from app.api.deps import get_rag_chain, get_hybrid_retriever
+from app.core.rag.intent import detect_intent
 from app.models.schemas import (
+    DocumentListResponse,
     EntityCategory,
     FacetedSearchRequest,
     FacetedSearchResponse,
@@ -66,21 +69,74 @@ async def search_query(request: RAGQueryRequest):
     return await rag.query(request)
 
 
+# ── GET /api/search/documents ──────────────────────────────────────────
+
+@router.get("/documents", response_model=DocumentListResponse)
+async def list_documents(
+    q: str = Query(
+        "",
+        description="Optional natural-language query, e.g. 'show my latest resume'. "
+                    "Its intent picks the document type and whether only the "
+                    "newest is wanted.",
+    ),
+    user_id: str = Query("default", description="User ID"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum documents to return"),
+):
+    """
+    List the original ingested documents, newest first.
+
+    This is the document-level counterpart to the entity search: it answers
+    "show my latest resume" or "show internship documents" with the files
+    themselves rather than with facts extracted from them. Every result carries
+    a `download_url` pointing at `/api/files/{file_id}`, which serves the
+    original bytes in the original format.
+
+    Called with no query it lists every stored document, which is what a
+    "my files" view wants.
+    """
+    retriever = get_hybrid_retriever()
+    intent = detect_intent(q)
+
+    documents = await retriever.find_documents(
+        user_id=user_id,
+        hints=intent.document_hints,
+        latest_only=intent.wants_latest,
+        limit=limit,
+        categories=intent.categories,
+    )
+
+    return DocumentListResponse(
+        user_id=user_id,
+        query=q,
+        intent=intent.describe(),
+        total=len(documents),
+        documents=documents,
+    )
+
+
 # ── GET /api/search/similar/{entity_id} ────────────────────────────────
 
 @router.get("/similar/{entity_id}", response_model=SimilarEntityResponse)
 async def find_similar(
     entity_id: str,
     top_k: int = Query(10, ge=1, le=50, description="Number of similar entities"),
+    user_id: Optional[str] = Query(
+        None, description="Scope results to one user (inferred from the entity if omitted)"
+    ),
 ):
     """
     Find entities similar to a given entity by embedding similarity.
     Searches across all entity collections (skills, projects, certifications, etc.)
+
+    For *explainable* connections — shared skills, temporal overlap, career
+    signals — use `/api/relations/entity/{entity_id}` instead. This endpoint is
+    raw vector similarity.
     """
     retriever = get_hybrid_retriever()
     entity_title, similar_chunks = await retriever.find_similar(
         entity_id=entity_id,
         top_k=top_k,
+        user_id=user_id,
     )
 
     if not entity_title and not similar_chunks:
@@ -133,9 +189,9 @@ async def faceted_search(request: FacetedSearchRequest):
             all_results.extend(chunks)
         else:
             # Pure metadata filter (no semantic query)
-            from app.core.vectordb.client import ChromaClient
+            from app.core.vectordb.client import ChromaClient, collection_for_category
             chroma = ChromaClient()
-            col_name = f"{category.value}s"
+            col_name = collection_for_category(category)
 
             try:
                 result = chroma.get_all(
@@ -158,6 +214,10 @@ async def faceted_search(request: FacetedSearchRequest):
                                 collection=col_name,
                                 score=1.0,
                                 snippet=doc[:200],
+                                # Without this the faceted branch returned
+                                # file_id=None for every result, so nothing could
+                                # link back to the original document.
+                                file_id=meta.get("file_id") or None,
                             ),
                         ))
             except Exception:

@@ -4,12 +4,14 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { findSimilar } from "@/lib/api";
-import type { Milestone, EntityCategory } from "@/lib/types";
+import { getEntityConnections } from "@/lib/api";
+import type { Milestone, MilestoneLink, EntityCategory } from "@/lib/types";
 
 interface TimelineViewProps {
   milestones: Milestone[];
 }
+
+const UNDATED = "Undated";
 
 const staggerContainer = {
   hidden: {},
@@ -44,44 +46,101 @@ const categoryIcons: Record<string, string> = {
   internship: "🏢",
   achievement: "🏆",
   academics: "🎓",
+  career_path: "🧭",
 };
 
-interface RelatedItem {
-  title: string;
-  category: string;
-  score: number;
+/** Reader-friendly names for the relation types the engine emits. */
+const relationLabels: Record<string, string> = {
+  certifies: "certifies",
+  used_in: "used in",
+  developed: "developed",
+  applied_at: "applied at",
+  built_during: "built during",
+  leads_to: "leads to",
+  recognised_by: "recognised by",
+  taught: "taught",
+  demonstrates: "demonstrates",
+};
+
+function ConnectionRow({ link }: { link: MilestoneLink }) {
+  const arrow = link.direction === "in" ? "←" : "→";
+  const verb = relationLabels[link.relation_type] || link.relation_type.replace(/_/g, " ");
+
+  return (
+    <div className="rounded-lg bg-dark-500/50 border border-dark-400/30 px-2.5 py-2">
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className="text-dark-400 text-[11px] font-mono">{arrow}</span>
+        <span className="text-[10px]">{categoryIcons[link.category] || "📎"}</span>
+        <span className="text-dark-100 text-xs font-medium">
+          {link.title || link.id.slice(0, 8)}
+        </span>
+        {verb && (
+          <span className="px-1.5 py-px rounded bg-primary-600/20 border border-primary-500/30 text-primary-300 text-[10px] font-medium">
+            {verb}
+          </span>
+        )}
+        {link.confidence > 0 && (
+          <span className="text-dark-400 text-[10px] font-mono ml-auto">
+            {Math.round(link.confidence * 100)}%
+          </span>
+        )}
+      </div>
+      {/* The reason the edge exists. This is what makes the map explainable
+          rather than an opaque list of nearest vector neighbours. */}
+      {(link.why || link.label) && (
+        <p className="text-[10px] text-dark-300 mt-1 leading-snug">
+          <span className="text-dark-400">why: </span>
+          {link.why || link.label}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function MilestoneCard({ milestone }: { milestone: Milestone }) {
   const [expanded, setExpanded] = useState(false);
-  const [related, setRelated] = useState<RelatedItem[]>([]);
+  // Relations now arrive inline on the milestone, already carrying the target's
+  // title and the evidence for the edge — no per-card request needed.
+  const inlineLinks = milestone.related ?? [];
+  const [fetchedLinks, setFetchedLinks] = useState<MilestoneLink[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
+
+  const links = inlineLinks.length > 0 ? inlineLinks : fetchedLinks;
+  const connectionCount =
+    inlineLinks.length || milestone.related_entities?.length || 0;
 
   const handleClick = async () => {
     const willExpand = !expanded;
     setExpanded(willExpand);
 
-    if (willExpand && !fetched && milestone.id) {
-      setLoading(true);
-      try {
-        const res = await findSimilar(milestone.id, 5);
-        const items: RelatedItem[] = (res.similar || [])
-          .map((chunk: any) => ({
-            title: chunk.metadata?.title || chunk.text?.split(":")[0] || "Unknown",
-            category: chunk.metadata?.category || "unknown",
-            score: Math.round((chunk.combined_score || chunk.semantic_score || 0) * 100),
-          }))
-          .filter((item: RelatedItem) => item.title.toLowerCase() !== milestone.title.toLowerCase())
-          .slice(0, 3);
-        setRelated(items);
-      } catch (err) {
-        console.error("Failed to fetch related:", err);
-        setRelated([]);
-      } finally {
-        setLoading(false);
-        setFetched(true);
-      }
+    // Only reach for the network when the milestone predates inline relations
+    // but still claims to have some — otherwise expanding is instant.
+    const needsFetch =
+      inlineLinks.length === 0 && (milestone.related_entities?.length ?? 0) > 0;
+    if (!willExpand || fetched || !needsFetch || !milestone.id) return;
+
+    setLoading(true);
+    try {
+      const res = await getEntityConnections(milestone.id);
+      setFetchedLinks(
+        (res.connections || []).map((edge) => ({
+          id: edge.target_id,
+          title: edge.target_title,
+          category: edge.target_category,
+          relation_type: edge.relation_type,
+          label: edge.label,
+          why: (edge.evidence || []).map((e) => e.detail).join("; "),
+          confidence: edge.confidence,
+          direction: edge.source_id === milestone.id ? "out" : "in",
+        }))
+      );
+    } catch (err) {
+      console.error("Failed to fetch connections:", err);
+      setFetchedLinks([]);
+    } finally {
+      setLoading(false);
+      setFetched(true);
     }
   };
 
@@ -136,9 +195,9 @@ function MilestoneCard({ milestone }: { milestone: Milestone }) {
         )}
 
         {/* Related entities count hint */}
-        {!expanded && milestone.related_entities.length > 0 && (
+        {!expanded && connectionCount > 0 && (
           <p className="text-[10px] text-dark-400 mt-2">
-            🔗 {milestone.related_entities.length} related — click to explore
+            🔗 {connectionCount} connection{connectionCount === 1 ? "" : "s"} — click to see why
           </p>
         )}
 
@@ -155,7 +214,7 @@ function MilestoneCard({ milestone }: { milestone: Milestone }) {
               <div className="mt-3 pt-3 border-t border-dark-500/50">
                 <div className="flex items-center gap-1.5 mb-2">
                   <span className="text-[10px] uppercase tracking-wider text-dark-300 font-semibold">
-                    🔗 Related Entities
+                    🔗 How this connects
                   </span>
                 </div>
 
@@ -166,22 +225,23 @@ function MilestoneCard({ milestone }: { milestone: Milestone }) {
                   </div>
                 )}
 
-                {!loading && related.length === 0 && fetched && (
-                  <p className="text-xs text-dark-400 italic">No related entities found</p>
+                {!loading && links.length === 0 && (
+                  <p className="text-xs text-dark-400 italic">
+                    No connections found for this milestone yet
+                  </p>
                 )}
 
-                {!loading && related.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {related.map((item, i) => (
-                      <span
-                        key={i}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-dark-500/80 border border-dark-400/30 text-xs"
-                      >
-                        <span className="text-[10px]">{categoryIcons[item.category] || "📎"}</span>
-                        <span className="text-dark-100 font-medium">{item.title}</span>
-                        <span className="text-dark-400 text-[10px]">{item.score}%</span>
-                      </span>
+                {!loading && links.length > 0 && (
+                  <div className="space-y-1.5">
+                    {links.slice(0, 6).map((link, i) => (
+                      <ConnectionRow key={`${link.id}-${i}`} link={link} />
                     ))}
+                    {links.length > 6 && (
+                      <p className="text-[10px] text-dark-400 pt-0.5">
+                        +{links.length - 6} more connection
+                        {links.length - 6 === 1 ? "" : "s"}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -214,11 +274,31 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ milestones }) => {
   // Group milestones by year
   const grouped: Record<string, Milestone[]> = {};
   milestones.forEach((m) => {
-    const year = m.date ? m.date.split("-")[0] : "Undated";
+    const year = m.date ? m.date.split("-")[0] : UNDATED;
     if (!grouped[year]) grouped[year] = [];
     grouped[year].push(m);
   });
-  const years = Object.keys(grouped).sort().reverse();
+  // Within each year, order newest-first too, so the whole column reads
+  // top-to-bottom as most-recent-to-oldest. The backend groups by year but
+  // does not guarantee intra-year order; without this the year headers descend
+  // while the cards beneath them climb. Undated items (only ever in the UNDATED
+  // bucket) keep their arrival order — there is no date to rank them by.
+  Object.values(grouped).forEach((items) =>
+    items.sort((a, b) => {
+      if (!a.date && !b.date) return 0;
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return b.date.localeCompare(a.date);
+    })
+  );
+  // Most recent year first, with undated entries last — a plain
+  // .sort().reverse() sorts "Undated" as a string and floats it above every
+  // real year, burying the dated journey beneath it.
+  const years = Object.keys(grouped).sort((a, b) => {
+    if (a === UNDATED) return 1;
+    if (b === UNDATED) return -1;
+    return Number(b) - Number(a);
+  });
 
   return (
     <div className="relative">

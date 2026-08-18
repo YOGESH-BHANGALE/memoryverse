@@ -5,12 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { getOrCreateUserId } from "@/lib/user";
-import { agentLog } from "@/lib/debugLog";
 
 const navLinks = [
   { href: "/upload", label: "Upload", icon: "📤" },
   { href: "/dashboard", label: "Dashboard", icon: "📊" },
   { href: "/timeline", label: "Timeline", icon: "📅" },
+  { href: "/graph", label: "Map", icon: "🕸️" },
   { href: "/search", label: "Search", icon: "🔍" },
 ];
 

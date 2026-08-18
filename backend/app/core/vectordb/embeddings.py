@@ -14,7 +14,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from app.config import get_settings
 from app.models.schemas import CategorisedEntity, EntityCategory, RawDocument
 from app.models.entities import entity_to_document
-from app.core.vectordb.client import ChromaClient
+from app.core.vectordb.client import ChromaClient, collection_for_category
 from app.utils.logger import logger
 
 
@@ -130,7 +130,7 @@ class EmbeddingService:
 
         stored = 0
         for category, cat_entities in by_category.items():
-            collection_name = f"{category.value}s"  # skill → skills
+            collection_name = collection_for_category(category)  # skill → skills
             docs = [entity_to_document(e) for e in cat_entities]
 
             doc_texts = [d["document"] for d in docs]

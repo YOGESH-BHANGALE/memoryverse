@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.api.routes import ingest, timeline, search, identity
+from app.api.routes import ingest, timeline, search, identity, relations
 from app.utils.logger import logger
 
 
@@ -77,6 +77,7 @@ app.include_router(ingest.router)
 app.include_router(timeline.router)
 app.include_router(search.router)
 app.include_router(identity.router)
+app.include_router(relations.router)
 
 
 # ── File Serving ────────────────────────────────────────────────────────

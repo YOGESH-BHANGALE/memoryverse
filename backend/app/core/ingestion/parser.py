@@ -19,7 +19,15 @@ class PDFParser:
 
     @staticmethod
     def parse(file_bytes: bytes, filename: str) -> RawDocument:
-        text, page_count = PDFParser._try_pypdf2(file_bytes)
+        # PyPDF2 raises (not just returns empty) on encrypted or malformed
+        # PDFs, which previously escaped as an HTTP 500 instead of using the
+        # pdfplumber fallback this class documents.
+        try:
+            text, page_count = PDFParser._try_pypdf2(file_bytes)
+        except Exception as exc:
+            logger.warning(f"PyPDF2 failed to parse {filename} ({exc}); falling back to pdfplumber")
+            text, page_count = "", 0
+
         if not text.strip():
             logger.info("PyPDF2 returned empty text, falling back to pdfplumber")
             text, page_count = PDFParser._try_pdfplumber(file_bytes)
@@ -46,11 +54,22 @@ class PDFParser:
         import pdfplumber
 
         pages: list[str] = []
-        with pdfplumber.open(io.BytesIO(data)) as pdf:
-            for page in pdf.pages:
-                text = page.extract_text() or ""
-                pages.append(text)
-            return "\n\n".join(pages), len(pdf.pages)
+        try:
+            with pdfplumber.open(io.BytesIO(data)) as pdf:
+                for page in pdf.pages:
+                    text = page.extract_text() or ""
+                    pages.append(text)
+                return "\n\n".join(pages), len(pdf.pages)
+        except Exception as exc:
+            # Encrypted or corrupt PDFs make pdfplumber.open raise. PyPDF2 is
+            # already exhausted by the time we get here, so there is nothing
+            # left to try — return empty text and let the caller reject the
+            # upload with a clean 400 rather than the exception escaping as a
+            # 500.
+            logger.warning(
+                f"pdfplumber also failed to parse the PDF ({exc}); giving up with empty text"
+            )
+            return "", 0
 
 
 # ── Text Parser ─────────────────────────────────────────────────────────

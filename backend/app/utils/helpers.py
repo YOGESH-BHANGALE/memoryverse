@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from urllib.parse import urlparse
 from uuid import uuid4
 
 from app.models.schemas import FileType
@@ -69,3 +70,39 @@ def normalise_date(raw: str | None) -> str | None:
 def sanitise_filename(name: str) -> str:
     """Remove dangerous characters from a filename."""
     return re.sub(r"[^\w.\-]", "_", name)
+
+
+def url_to_filename(url: str, max_len: int = 60) -> str:
+    """
+    Turn a URL into a filesystem-safe basename (no extension).
+
+    A raw URL cannot be used as a filename — "https://github.com/x" contains
+    ":" and "/", both illegal on Windows — so link ingests previously had no
+    way to persist the original page.
+    """
+    parsed = urlparse(url if "://" in url else f"https://{url}")
+    stem = f"{parsed.netloc}{parsed.path}".strip("/") or "page"
+    return sanitise_filename(stem)[:max_len].strip("_") or "page"
+
+
+def date_range_start(raw: str | None) -> str | None:
+    """
+    Normalise the start of a free-text date range ("Jan 2023 – Mar 2023").
+
+    Splits on en-dash, em-dash, "to" and ASCII hyphen. Note that a plain
+    ``.split("-")`` is unsafe here: it would also split an already-normalised
+    "2023-01" into "2023", so ISO-looking values are matched first and returned
+    untouched.
+    """
+    if not raw:
+        return None
+
+    raw = raw.strip()
+
+    # Already ISO-ish (YYYY-MM / YYYY-MM-DD) — never split these.
+    if re.match(r"^\d{4}-\d{2}(-\d{2})?$", raw):
+        return normalise_date(raw)
+
+    # "2023-01 - 2023-06" / "Jan 2023 – Mar 2023" / "2023 to 2024"
+    parts = re.split(r"\s+to\s+|\s*[–—]\s*|\s+-\s+|(?<=\d{4})\s*-\s*(?=[A-Za-z\d])", raw, maxsplit=1)
+    return normalise_date(parts[0].strip())

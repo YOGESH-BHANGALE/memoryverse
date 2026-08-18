@@ -17,6 +17,7 @@ const sidebarSections = [
     title: "Explore",
     links: [
       { href: "/timeline", label: "Timeline", icon: "📅" },
+      { href: "/graph", label: "Knowledge Map", icon: "🕸️" },
       { href: "/search", label: "Ask AI", icon: "🔍" },
     ],
   },
@@ -73,7 +74,7 @@ export const Sidebar: React.FC = () => {
             Tech Stack
           </p>
           <div className="flex flex-wrap gap-1">
-            {["FastAPI", "ChromaDB", "GPT-4o", "Next.js"].map((tech) => (
+            {["FastAPI", "ChromaDB", "Groq", "Next.js"].map((tech) => (
               <span
                 key={tech}
                 className="px-1.5 py-0.5 rounded bg-dark-600/60 text-dark-200 text-[9px]"

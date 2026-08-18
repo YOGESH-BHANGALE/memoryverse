@@ -18,4 +18,10 @@ backend/test_e2e_file.py
 backend/test_file_storage.py
 frontend/e2e/large.pdf
 
+# Local scratch / backups — must not be committed on a `git add -A`
+backups/
+backend/backups/
+*.output
+*_result*.txt
+
 

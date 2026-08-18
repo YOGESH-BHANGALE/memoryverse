@@ -7,8 +7,8 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from app.api.deps import get_chroma_client
-from app.core.vectordb.client import COLLECTIONS
-from app.models.schemas import UserProfile
+from app.core.vectordb.client import collection_for_category
+from app.models.schemas import EntityCategory, UserProfile
 
 router = APIRouter(prefix="/api/identity", tags=["Identity"])
 
@@ -21,10 +21,14 @@ async def get_identity(user_id: str):
     chroma = get_chroma_client()
     total = 0
     top_skills: list[str] = []
+    # Seed every category at 0 so the response shape is stable and the
+    # dashboard can render a real "0" instead of a blank card.
+    category_counts: dict[str, int] = {c.value: 0 for c in EntityCategory}
 
-    for col_name in COLLECTIONS:
-        if col_name == "raw_chunks":
-            continue
+    for category in EntityCategory:
+        # collection_for_category is the single source of truth for names —
+        # deriving them inline is what stranded academics in "academicss".
+        col_name = collection_for_category(category)
         try:
             result = chroma.get_all(
                 collection_name=col_name,
@@ -34,9 +38,10 @@ async def get_identity(user_id: str):
             if result and result.get("ids"):
                 count = len(result["ids"])
                 total += count
+                category_counts[category.value] = count
 
                 # Extract skill names
-                if col_name == "skills" and result.get("metadatas"):
+                if category is EntityCategory.SKILL and result.get("metadatas"):
                     for meta in result["metadatas"]:
                         title = meta.get("title", "")
                         if title:
@@ -53,4 +58,5 @@ async def get_identity(user_id: str):
         summary=f"Professional profile with {total} extracted entities",
         top_skills=top_skills[:15],
         total_entities=total,
+        category_counts=category_counts,
     )

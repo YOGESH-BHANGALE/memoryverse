@@ -6,13 +6,51 @@ import { SearchBar } from "@/components/search/SearchBar";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useAppStore } from "@/lib/store";
-import type { SourceAttribution } from "@/lib/types";
+import { fileUrl } from "@/lib/api";
+import type { SourceAttribution, SourceDocument } from "@/lib/types";
+
+/**
+ * Turns the router's machine intent into something a reviewer can read.
+ * The raw value is compact on purpose ("categories=internship; documents") —
+ * good for logs, but it should not be the label a user sees.
+ */
+function describeIntent(intent: string): string {
+  const parts = intent
+    .split(";")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const words: string[] = [];
+
+  for (const part of parts) {
+    if (part.startsWith("categories=")) {
+      words.push(
+        part
+          .slice("categories=".length)
+          .split(",")
+          .map((c) => c.trim().replace(/_/g, " "))
+          .filter(Boolean)
+          .join(" + ")
+      );
+    } else if (part.startsWith("documents:")) {
+      words.push(`${part.slice("documents:".length).trim()} files`);
+    } else if (part === "documents") {
+      words.push("original files");
+    } else if (part === "latest") {
+      words.push("most recent");
+    } else if (part !== "none") {
+      words.push(part);
+    }
+  }
+  return words.join(" · ");
+}
 
 export default function SearchPage() {
   const {
     searchResult,
     streamingAnswer,
     streamingSources,
+    searchIntent,
+    searchDocuments,
     isStreaming,
     searchLoading,
     searchError,
@@ -37,6 +75,11 @@ export default function SearchPage() {
     streamingSources.length > 0
       ? streamingSources
       : searchResult?.sources || [];
+
+  const documents: SourceDocument[] =
+    searchDocuments.length > 0 ? searchDocuments : searchResult?.documents || [];
+
+  const intentLabel = describeIntent(searchIntent || searchResult?.intent || "");
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)]">
@@ -79,13 +122,15 @@ export default function SearchPage() {
               topic from your uploaded documents.
             </p>
 
-            {/* Suggestion chips */}
+            {/* The four patterns the retrieval router handles explicitly:
+                two category questions, one document-type question, one
+                document-type + recency question. */}
             <div className="flex flex-wrap justify-center gap-2 mt-6">
               {[
-                "What are my top skills?",
-                "Summarize my projects",
-                "List my certifications",
-                "What Python experience do I have?",
+                "show all my certificates",
+                "show my AI projects",
+                "show internship documents",
+                "show my latest resume",
               ].map((suggestion) => (
                 <button
                   key={suggestion}
@@ -204,6 +249,97 @@ export default function SearchPage() {
           </motion.div>
         )}
 
+        {/* How the router read the question. Shown so a wrong reading is
+            visible instead of silently returning the wrong documents. */}
+        {intentLabel && (chatHistory.length > 0 || isStreaming) && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex items-center gap-2 flex-wrap"
+          >
+            <span className="text-[10px] text-dark-400 uppercase tracking-wider">
+              Understood as
+            </span>
+            <span className="px-2 py-0.5 rounded-full bg-primary-500/10 text-primary-300 text-[10px] ring-1 ring-primary-500/25 font-medium">
+              🎯 {intentLabel}
+            </span>
+          </motion.div>
+        )}
+
+        {/* Original documents — the answer to "show my latest resume" is a file,
+            not a paragraph, so link straight to the untouched original. */}
+        {documents.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <Card className="bg-dark-800/50 max-w-[80%] border-emerald-500/20">
+              <h4 className="text-[10px] font-semibold text-dark-300 mb-2 uppercase tracking-wider">
+                🗂️ Original documents ({documents.length})
+              </h4>
+              <div className="space-y-1.5">
+                {documents.map((doc: SourceDocument) => {
+                  const href = doc.download_url
+                    ? fileUrl(doc.download_url)
+                    : doc.source_file?.startsWith("http")
+                    ? doc.source_file
+                    : "";
+
+                  return (
+                    <div
+                      key={doc.file_id || doc.source_file}
+                      className="flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-dark-700/40 hover:bg-dark-700/70 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        {href ? (
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-[11px] text-emerald-400 hover:text-emerald-300 underline font-medium truncate"
+                            title={`Open the original ${doc.file_type || "file"}`}
+                          >
+                            <span>📄</span>
+                            <span className="truncate">{doc.source_file}</span>
+                          </a>
+                        ) : (
+                          <span className="text-[11px] text-dark-200 truncate font-mono">
+                            {doc.source_file}
+                          </span>
+                        )}
+                        <p className="text-[10px] text-dark-400 mt-0.5">
+                          {doc.file_type || "file"} · {doc.chunk_count} chunk
+                          {doc.chunk_count === 1 ? "" : "s"}
+                          {doc.entity_count > 0
+                            ? ` · ${doc.entity_count} extracted`
+                            : ""}
+                          {doc.uploaded_at
+                            ? ` · ${doc.uploaded_at.slice(0, 10)}`
+                            : ""}
+                        </p>
+                      </div>
+                      {href && (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-shrink-0 px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 text-[10px] ring-1 ring-emerald-500/25 hover:bg-emerald-500/20 transition-colors"
+                        >
+                          Download
+                        </a>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-dark-400 mt-2">
+                Served in the original format, untouched, from
+                <span className="font-mono"> /api/files/…</span>
+              </p>
+            </Card>
+          </motion.div>
+        )}
+
         {/* Sources (shown after streaming completes) */}
         {displaySources.length > 0 && !isStreaming && chatHistory.length > 0 && (
           <motion.div
@@ -219,8 +355,10 @@ export default function SearchPage() {
                 {displaySources
                   .slice(0, 5)
                   .map((src: SourceAttribution, i: number) => {
-                    const fileUrl = src.file_id
-                      ? `http://localhost:8000/api/files/${src.file_id}`
+                    // Named `href` rather than `fileUrl` so it does not shadow
+                    // the imported helper of that name.
+                    const href = src.file_id
+                      ? fileUrl(src.file_id)
                       : src.source_file?.startsWith("http")
                       ? src.source_file
                       : null;
@@ -230,9 +368,9 @@ export default function SearchPage() {
                         key={src.chunk_id || i}
                         className="flex items-center justify-between px-2 py-1.5 rounded bg-dark-700/40 hover:bg-dark-700/70 transition-colors"
                       >
-                        {fileUrl ? (
+                        {href ? (
                           <a
-                            href={fileUrl}
+                            href={href}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-1.5 text-[11px] text-primary-400 hover:text-primary-300 underline font-medium truncate"

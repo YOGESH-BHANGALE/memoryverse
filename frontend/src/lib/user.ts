@@ -4,8 +4,6 @@
  * and returns it for use with all API requests — replacing hardcoded "default".
  */
 
-import { agentLog } from "./debugLog";
-
 const USER_ID_KEY = "memoryverse_user_id";
 
 function getCookie(name: string): string | null {
@@ -27,6 +25,22 @@ function setCookie(name: string, value: string, days = 365) {
 
 export function getOrCreateUserId(): string {
   if (typeof window === "undefined") return "default";
+
+  // 0. An explicit ?user=<id> in the URL pins that identity and persists it.
+  //    This is how the demo is loaded without console surgery: bookmark
+  //    /dashboard?user=<uuid> and one click seeds the cookie + localStorage,
+  //    overriding any previously stored id. Ignored only for the literal
+  //    "default", which the backend treats as the unseeded fallback bucket.
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get("user");
+    if (fromUrl && fromUrl !== "default") {
+      setCookie(USER_ID_KEY, fromUrl);
+      try {
+        localStorage.setItem(USER_ID_KEY, fromUrl);
+      } catch {}
+      return fromUrl;
+    }
+  } catch {}
 
   // 1. Try cookie first
   let userId = getCookie(USER_ID_KEY);
@@ -53,10 +67,6 @@ export function getOrCreateUserId(): string {
   try {
     localStorage.setItem(USER_ID_KEY, userId);
   } catch {}
-
-  // #region agent log
-  agentLog({runId:'pre-fix',hypothesisId:'B,E',location:'user.ts:getOrCreateUserId',message:'Resolved user id',data:{userIdPrefix:userId?.slice?.(0,8),isDefault:userId==='default',host:typeof window!=='undefined'?window.location.host:null,protocol:typeof window!=='undefined'?window.location.protocol:null,isSecureContext:typeof window!=='undefined'?window.isSecureContext:null,hasCryptoUUID:typeof crypto!=='undefined'&&!!crypto.randomUUID}});
-  // #endregion
 
   return userId;
 }

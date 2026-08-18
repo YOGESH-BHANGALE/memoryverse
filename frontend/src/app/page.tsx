@@ -20,13 +20,15 @@ const features = [
   },
   {
     icon: "🤖",
+    // Named for what actually runs. The card said "GPT-4o", which the backend
+    // has never called — it is Groq-hosted gpt-oss with a smaller fallback.
     title: "LLM Extraction",
-    desc: "GPT-4o zero-shot structured extraction of skills, projects & more",
+    desc: "Groq-hosted LLM, strict-JSON extraction with a fallback model",
   },
   {
     icon: "🧬",
     title: "Entity Relations",
-    desc: "Auto-link skills to projects, internships to certifications",
+    desc: "Explainable links: shared tags, tech match, temporal proximity",
   },
   {
     icon: "📅",
@@ -123,7 +125,7 @@ export default function HomePage() {
           animate="show"
           className="relative z-10 flex flex-wrap justify-center gap-2 mt-10"
         >
-          {["FastAPI", "ChromaDB", "LangChain", "GPT-4o", "Next.js", "Zustand"].map(
+          {["FastAPI", "ChromaDB", "LangChain", "Groq", "Next.js", "Zustand"].map(
             (tech) => (
               <span
                 key={tech}

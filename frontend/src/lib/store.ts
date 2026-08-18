@@ -10,13 +10,13 @@
 
 import { create } from "zustand";
 import { getOrCreateUserId } from "./user";
-import { agentLog } from "./debugLog";
 import type {
   UserProfile,
   IngestionResult,
   TimelineResponse,
   RAGAnswerResponse,
   SourceAttribution,
+  SourceDocument,
   EntityCategory,
   CategorisedEntity,
 } from "./types";
@@ -60,6 +60,10 @@ interface AppState {
   searchResult: RAGAnswerResponse | null;
   streamingAnswer: string;
   streamingSources: SourceAttribution[];
+  /** How the query router read the last question, e.g. "categories=certification". */
+  searchIntent: string;
+  /** Original files matching a document-level question ("show my latest resume"). */
+  searchDocuments: SourceDocument[];
   isStreaming: boolean;
   searchLoading: boolean;
   searchError: string | null;
@@ -109,9 +113,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
     try {
       set({ uploadProgress: "Processing with AI…" });
-      // #region agent log
-      agentLog({runId:'pre-fix',hypothesisId:'B,E',location:'store.ts:doUpload',message:'Upload start',data:{fileName:file?.name,fileSize:file?.size,storeUserIdPrefix:get().userId?.slice?.(0,8),isDefault:get().userId==='default'}});
-      // #endregion
       const result = await uploadFile(file, get().userId);
       set({ uploadResult: result, uploadLoading: false, uploadProgress: "Done" });
       // Refresh profile after upload
@@ -174,6 +175,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   searchResult: null,
   streamingAnswer: "",
   streamingSources: [],
+  searchIntent: "",
+  searchDocuments: [],
   isStreaming: false,
   searchLoading: false,
   searchError: null,
@@ -187,6 +190,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       searchResult: null,
       streamingAnswer: "",
       streamingSources: [],
+      searchIntent: "",
+      searchDocuments: [],
       chatHistory: [...history, { role: "user", content: query }],
     });
     try {
@@ -200,6 +205,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       const result = await ragQuery(request);
       set({
         searchResult: result,
+        searchIntent: result.intent || "",
+        searchDocuments: result.documents || [],
         searchLoading: false,
         chatHistory: [
           ...get().chatHistory,
@@ -223,6 +230,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       searchResult: null,
       streamingAnswer: "",
       streamingSources: [],
+      searchIntent: "",
+      searchDocuments: [],
       chatHistory: [...history, { role: "user", content: query }],
     });
     try {
@@ -242,6 +251,14 @@ export const useAppStore = create<AppState>((set, get) => ({
         },
         onSources: (sources: SourceAttribution[]) => {
           set({ streamingSources: sources });
+        },
+        // Both arrive before the first answer token, so the UI can show what the
+        // router understood and offer the original files while text streams in.
+        onIntent: (intent: string) => {
+          set({ searchIntent: intent });
+        },
+        onDocuments: (documents: SourceDocument[]) => {
+          set({ searchDocuments: documents });
         },
         onDone: () => {
           const finalAnswer = get().streamingAnswer;
@@ -276,6 +293,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       searchResult: null,
       streamingAnswer: "",
       streamingSources: [],
+      searchIntent: "",
+      searchDocuments: [],
       searchError: null,
       chatHistory: [],
     }),

@@ -21,8 +21,33 @@ COLLECTIONS = [
     "certifications",
     "internships",
     "achievements",
+    "academics",
     "raw_chunks",
 ]
+
+# Maps an EntityCategory value → its collection name.
+# Most category values are singular ("skill" → "skills"), but "academics" is
+# already plural, so the naive f"{value}s" produced "academicss" — a collection
+# nothing else ever read from. Keep this mapping as the single source of truth.
+_CATEGORY_COLLECTIONS = {
+    "skill": "skills",
+    "project": "projects",
+    "certification": "certifications",
+    "internship": "internships",
+    "achievement": "achievements",
+    "academics": "academics",
+}
+
+
+def collection_for_category(category: Any) -> str:
+    """
+    Return the canonical collection name for an EntityCategory (or its value).
+
+    Accepts either the enum member or a plain string so callers don't need to
+    import the schema module.
+    """
+    value = getattr(category, "value", category)
+    return _CATEGORY_COLLECTIONS.get(value, f"{value}s")
 
 
 class ChromaClient:

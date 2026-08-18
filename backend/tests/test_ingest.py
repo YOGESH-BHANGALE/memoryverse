@@ -3,8 +3,9 @@ Tests for the ingestion pipeline.
 """
 
 import pytest
-from app.core.ingestion.parser import TextParser
+from app.core.ingestion.parser import TextParser, PDFParser
 from app.core.ingestion.categorizer import Categorizer
+from app.core.ingestion.normalizer import normalise_payload
 from app.models.schemas import (
     ExtractionResult,
     Skill,
@@ -33,6 +34,63 @@ class TestTextParser:
         content = "Héllo wörld résumé".encode("utf-8")
         result = TextParser.parse(content, "unicode.txt")
         assert "résumé" in result.text
+
+
+class TestPDFParserResilience:
+    def test_garbage_bytes_do_not_raise(self):
+        # A non-PDF (or encrypted/corrupt) payload must not escape as an HTTP
+        # 500. PyPDF2 raises, the pdfplumber fallback also raises, and both are
+        # now swallowed into an empty RawDocument that the ingest route rejects
+        # with a clean 400 instead.
+        result = PDFParser.parse(b"this is definitely not a pdf", "broken.pdf")
+        assert result.text == ""
+        assert result.file_type == FileType.PDF
+        assert result.page_count == 0
+
+
+class TestDiplomaReclassification:
+    """Fix: 'Diploma' alone must not reclassify a course certificate as an
+    academic record — it needs a corroborating institution signal."""
+
+    def test_online_course_diploma_stays_a_certification(self):
+        out = normalise_payload({
+            "certifications": [
+                {"name": "Diploma in Python Programming", "issuer": "Udemy"},
+            ]
+        })
+        assert "Diploma in Python Programming" in [c["name"] for c in out["certification"]]
+        assert out["academics"] == []
+
+    def test_polytechnic_diploma_moves_to_academics(self):
+        out = normalise_payload({
+            "certifications": [
+                {"name": "Diploma in Mechanical Engineering",
+                 "issuer": "Government Polytechnic, Pune"},
+            ]
+        })
+        assert out["certification"] == []
+        assert len(out["academics"]) == 1
+
+    def test_a_real_degree_moves_without_an_institution_word(self):
+        # Unambiguous degree words are decisive on their own.
+        out = normalise_payload({
+            "certifications": [
+                {"name": "Bachelor of Engineering in Computer Science",
+                 "issuer": "DYPIT"},
+            ]
+        })
+        assert out["certification"] == []
+        assert len(out["academics"]) == 1
+
+    def test_a_plain_professional_cert_is_untouched(self):
+        out = normalise_payload({
+            "certifications": [
+                {"name": "AWS Certified Solutions Architect",
+                 "issuer": "Amazon Web Services"},
+            ]
+        })
+        assert len(out["certification"]) == 1
+        assert out["academics"] == []
 
 
 class TestCategorizer:

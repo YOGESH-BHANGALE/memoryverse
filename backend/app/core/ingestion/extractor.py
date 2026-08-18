@@ -13,6 +13,7 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 
 from app.config import get_settings
+from app.core.ingestion.normalizer import normalise_payload
 from app.models.schemas import (
     Achievement,
     Certification,
@@ -61,6 +62,64 @@ Extract all entities as JSON.
 """
 
 
+def _repair_truncated_json(text: str) -> dict[str, Any] | None:
+    """
+    Salvage a JSON object that was cut off mid-stream.
+
+    Hitting max_tokens on a long resume yields valid JSON right up to the
+    truncation point and nothing after it. Rather than lose the whole
+    extraction, walk back to the last complete element and close the open
+    brackets so the prefix parses.
+    """
+    start = text.find("{")
+    if start == -1:
+        return None
+    body = text[start:]
+
+    # Trim to the last plausible element boundary, then close what is open.
+    for cut in range(len(body), 0, -1):
+        if body[cut - 1] not in "}]\"0123456789truefalsnl ":
+            continue
+        candidate = body[:cut].rstrip().rstrip(",")
+
+        depth_curly = depth_square = 0
+        in_string = escaped = False
+        for ch in candidate:
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif ch == "\\":
+                    escaped = True
+                elif ch == '"':
+                    in_string = False
+                continue
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth_curly += 1
+            elif ch == "}":
+                depth_curly -= 1
+            elif ch == "[":
+                depth_square += 1
+            elif ch == "]":
+                depth_square -= 1
+
+        if in_string or depth_curly < 0 or depth_square < 0:
+            continue
+
+        patched = candidate + ("]" * depth_square) + ("}" * depth_curly)
+        try:
+            parsed = json.loads(patched)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            logger.warning(
+                f"Recovered truncated LLM JSON — salvaged {cut}/{len(body)} chars"
+            )
+            return parsed
+    return None
+
+
 def _extract_json(text: str) -> dict[str, Any]:
     """Extract a JSON object from LLM response text, handling markdown fences."""
     # Try to find JSON in markdown code fences first
@@ -81,6 +140,12 @@ def _extract_json(text: str) -> dict[str, Any]:
             return json.loads(brace_match.group(0))
         except json.JSONDecodeError:
             pass
+
+    # Last resort: the response was cut off mid-object — salvage the prefix
+    # instead of throwing the entire extraction away.
+    repaired = _repair_truncated_json(text)
+    if repaired is not None:
+        return repaired
 
     raise ValueError(f"Could not extract valid JSON from LLM response: {text[:200]}...")
 
@@ -133,13 +198,14 @@ class EntityExtractor:
                 self.chain, document_text
             )
         except Exception as exc:
+            settings = get_settings()
             logger.warning(
-                f"Primary LLM model failed ({exc}). Attempting fallback to llama-3.1-8b-instant..."
+                f"Primary LLM model {settings.groq_model} failed ({exc}). "
+                f"Attempting fallback to {settings.groq_fallback_model}..."
             )
             try:
-                settings = get_settings()
                 fallback_llm = ChatGroq(
-                    model="llama-3.1-8b-instant",
+                    model=settings.groq_fallback_model,
                     api_key=settings.groq_api_key,
                     temperature=0,
                     max_tokens=4096,
@@ -158,25 +224,32 @@ class EntityExtractor:
 
     @staticmethod
     def _parse_result(raw: dict[str, Any]) -> ExtractionResult:
-        """Safely parse LLM JSON into typed Pydantic models."""
-        def _safe_list(model_cls, items: Any) -> list:
-            if not isinstance(items, list):
-                return []
+        """
+        Safely parse LLM JSON into typed Pydantic models.
+
+        The raw payload is normalised first (see core.ingestion.normalizer):
+        bare strings, aliased keys and comma-joined lists are coerced into the
+        expected shape rather than discarded, and entities filed under the
+        wrong key are reclassified. Only genuinely unusable records are dropped.
+        """
+        buckets = normalise_payload(raw)
+
+        def _build(model_cls, kind: str) -> list:
             parsed = []
-            for item in items:
+            for item in buckets.get(kind, []):
                 try:
                     parsed.append(model_cls(**item))
-                except Exception:
-                    continue
+                except Exception as exc:
+                    logger.warning(f"Dropping unparseable {kind} record {item!r}: {exc}")
             return parsed
 
         result = ExtractionResult(
-            certifications=_safe_list(Certification, raw.get("certifications")),
-            skills=_safe_list(Skill, raw.get("skills")),
-            projects=_safe_list(Project, raw.get("projects")),
-            internships=_safe_list(Internship, raw.get("internships")),
-            achievements=_safe_list(Achievement, raw.get("achievements")),
-            academics=_safe_list(Academic, raw.get("academics")),
+            certifications=_build(Certification, "certification"),
+            skills=_build(Skill, "skill"),
+            projects=_build(Project, "project"),
+            internships=_build(Internship, "internship"),
+            achievements=_build(Achievement, "achievement"),
+            academics=_build(Academic, "academics"),
         )
 
         total = (

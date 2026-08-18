@@ -18,7 +18,7 @@ from app.api.deps import (
 from app.config import get_settings
 from app.core.ingestion.parser import parse_file
 from app.models.schemas import IngestionResult, IngestionStatusResponse, JobStatus, LinkIngestionRequest
-from app.utils.helpers import detect_file_type, generate_job_id
+from app.utils.helpers import detect_file_type, generate_job_id, url_to_filename
 from app.utils.logger import logger
 
 router = APIRouter(prefix="/api/ingest", tags=["Ingestion"])
@@ -70,6 +70,15 @@ async def upload_file(file: UploadFile = File(...), user_id: str = "default"):
         raw_doc.file_id = file_id
         logger.info(f"Parsed {file.filename}: {len(raw_doc.text)} chars, {raw_doc.page_count} pages")
 
+        # A scanned-image PDF or a file we could not extract from yields little
+        # or no text. Reject it clearly here — mirroring the link route — rather
+        # than spending an LLM call on an empty string and returning nothing.
+        if len(raw_doc.text.strip()) < 50:
+            raise HTTPException(
+                status_code=400,
+                detail="Could not extract enough text from this file — is it a scanned image or empty?",
+            )
+
         # Step 2: LLM Extraction
         _jobs[job_id].progress = "Extracting entities via LLM…"
         extractor = get_extractor()
@@ -78,7 +87,7 @@ async def upload_file(file: UploadFile = File(...), user_id: str = "default"):
         # Step 3: Categorize
         _jobs[job_id].progress = "Categorizing entities…"
         categorizer = get_categorizer()
-        entities = categorizer.categorise(extraction)
+        entities = categorizer.categorise(extraction, user_id)
         for e in entities:
             e.file_id = file_id
 
@@ -88,11 +97,12 @@ async def upload_file(file: UploadFile = File(...), user_id: str = "default"):
         await embedding_svc.store_raw_chunks(raw_doc, user_id, file_id=file_id)
         await embedding_svc.store_entities(entities, user_id, file_id=file_id)
 
-        # Step 5: Build Relations
+        # Step 5: Build Relations — across this user's whole corpus. Scoping
+        # this to the current upload's entities left every document as its own
+        # disconnected island in the knowledge graph.
         _jobs[job_id].progress = "Building relations…"
         relation_engine = get_relation_engine()
-        relations = relation_engine.build_relations(entities)
-        relation_engine.store_relations(entities, relations)
+        relation_engine.rebuild_user_graph(user_id)
 
         # Done
         _jobs[job_id] = IngestionStatusResponse(
@@ -109,6 +119,15 @@ async def upload_file(file: UploadFile = File(...), user_id: str = "default"):
 
     except HTTPException:
         raise
+    except ValueError as exc:
+        # Unsupported extension (detect_file_type) or an unregistered parser
+        # type (parse_file) is a client mistake, not a server fault — surface
+        # it as a 400 instead of letting the broad handler below make it a 500.
+        logger.warning(f"Rejected upload for job {job_id}: {exc}")
+        _jobs[job_id] = IngestionStatusResponse(
+            job_id=job_id, status=JobStatus.FAILED, progress=str(exc)
+        )
+        raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
         logger.error(f"Ingestion failed for job {job_id}: {exc}", exc_info=True)
         _jobs[job_id] = IngestionStatusResponse(
@@ -136,7 +155,18 @@ async def ingest_link(request: LinkIngestionRequest, user_id: str = "default"):
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.get(url, follow_redirects=True)
             resp.raise_for_status()
-            
+
+        # Persist the fetched page verbatim, exactly like an uploaded file, so
+        # link-derived entities can be traced back through /api/files/{file_id}.
+        # Without this every link ingest produced orphaned entities with no
+        # retrievable original.
+        file_id = generate_job_id()
+        settings = get_settings()
+        original_name = f"{url_to_filename(url)}.html"
+        dest_path = settings.upload_path / f"{file_id}_{original_name}"
+        dest_path.write_bytes(resp.content)
+        logger.info(f"Saved original page to {dest_path}")
+
         _jobs[job_id].progress = "Extracting text from HTML…"
         soup = BeautifulSoup(resp.text, "html.parser")
         
@@ -159,28 +189,32 @@ async def ingest_link(request: LinkIngestionRequest, user_id: str = "default"):
         # Step 3: Categorize
         _jobs[job_id].progress = "Categorizing entities…"
         categorizer = get_categorizer()
-        entities = categorizer.categorise(extraction)
+        entities = categorizer.categorise(extraction, user_id)
+        for e in entities:
+            e.file_id = file_id
 
         # Step 4: Embed & Store
         _jobs[job_id].progress = "Embedding and storing…"
         embedding_svc = get_embedding_service()
-        
-        # Create a mock RawDocument for embedding storage compatibility
+
+        # Wrap the scraped text in a RawDocument so it flows through the same
+        # chunk/embed path as an uploaded file.
         from app.models.schemas import RawDocument, FileType
         raw_doc = RawDocument(
             text=text,
-            filename=url,
+            filename=original_name,
             file_type=FileType.TXT,
-            page_count=1
+            page_count=1,
+            file_id=file_id,
         )
-        await embedding_svc.store_raw_chunks(raw_doc, user_id)
-        await embedding_svc.store_entities(entities, user_id)
+        await embedding_svc.store_raw_chunks(raw_doc, user_id, file_id=file_id)
+        await embedding_svc.store_entities(entities, user_id, file_id=file_id)
 
-        # Step 5: Build Relations
+        # Step 5: Build Relations — across this user's whole corpus, not just
+        # the entities from this one page.
         _jobs[job_id].progress = "Building relations…"
         relation_engine = get_relation_engine()
-        relations = relation_engine.build_relations(entities)
-        relation_engine.store_relations(entities, relations)
+        relation_engine.rebuild_user_graph(user_id)
 
         # Done
         _jobs[job_id] = IngestionStatusResponse(

@@ -25,6 +25,12 @@ interface SkillData {
 
 interface SkillGraphProps {
   skills: SkillData[];
+  /**
+   * True number of extracted skills. `skills` is only the top slice the profile
+   * returns, so without this the panel reported "Total Skills 15" directly under
+   * a stat card reading 71 — two different numbers for the same thing.
+   */
+  total?: number;
 }
 
 // Pastel colors for categories
@@ -44,15 +50,13 @@ const CustomTooltip = ({ active, payload }: any) => {
   const d = payload[0].payload;
   return (
     <div className="bg-dark-700 border border-dark-400/50 rounded-lg px-3 py-2 shadow-xl">
-      <p className="text-sm font-semibold text-white">{d.name}</p>
-      <p className="text-xs text-dark-200">
-        Level: {d.level}/10 • {d.category || "General"}
-      </p>
+      <p className="text-sm font-semibold text-white">{d.fullName || d.name}</p>
+      <p className="text-xs text-dark-200">Rank score {d.level}/10</p>
     </div>
   );
 };
 
-export const SkillGraph: React.FC<SkillGraphProps> = ({ skills }) => {
+export const SkillGraph: React.FC<SkillGraphProps> = ({ skills, total }) => {
   if (!skills.length) {
     return (
       <Card className="text-center py-12">
@@ -92,26 +96,25 @@ export const SkillGraph: React.FC<SkillGraphProps> = ({ skills }) => {
     const cat = s.category || "General";
     categoryGroups[cat] = (categoryGroups[cat] || 0) + 1;
   });
+  // Only worth showing when the caller supplied real categories; a single
+  // "General 15" chip is a row of pixels that tells the reader nothing.
+  const hasRealCategories = Object.keys(categoryGroups).length > 1;
 
   return (
     <div className="space-y-6">
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <Card className="text-center py-3">
-          <p className="text-2xl font-bold text-primary-400">{skills.length}</p>
-          <p className="text-xs text-dark-300">Total Skills</p>
+          <p className="text-2xl font-bold text-primary-400">
+            {total ?? skills.length}
+          </p>
+          <p className="text-xs text-dark-300">Skills extracted</p>
         </Card>
         <Card className="text-center py-3">
           <p className="text-2xl font-bold text-emerald-400">
-            {skills.filter((s) => s.level >= 7).length}
+            {Math.min(skills.length, 15)}
           </p>
-          <p className="text-xs text-dark-300">Advanced</p>
-        </Card>
-        <Card className="text-center py-3">
-          <p className="text-2xl font-bold text-amber-400">
-            {Object.keys(categoryGroups).length}
-          </p>
-          <p className="text-xs text-dark-300">Categories</p>
+          <p className="text-xs text-dark-300">Top skills charted</p>
         </Card>
       </div>
 
@@ -188,29 +191,31 @@ export const SkillGraph: React.FC<SkillGraphProps> = ({ skills }) => {
       </div>
 
       {/* Category breakdown */}
-      <Card>
-        <h3 className="text-sm font-semibold text-dark-200 mb-3">
-          🏷️ By Category
-        </h3>
-        <div className="flex flex-wrap gap-2">
-          {Object.entries(categoryGroups)
-            .sort(([, a], [, b]) => b - a)
-            .map(([cat, count], i) => (
-              <span
-                key={cat}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
-                style={{
-                  backgroundColor: `${COLORS[i % COLORS.length]}15`,
-                  color: COLORS[i % COLORS.length],
-                  border: `1px solid ${COLORS[i % COLORS.length]}30`,
-                }}
-              >
-                {cat}
-                <span className="font-bold">{count}</span>
-              </span>
-            ))}
-        </div>
-      </Card>
+      {hasRealCategories && (
+        <Card>
+          <h3 className="text-sm font-semibold text-dark-200 mb-3">
+            🏷️ By Category
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(categoryGroups)
+              .sort(([, a], [, b]) => b - a)
+              .map(([cat, count], i) => (
+                <span
+                  key={cat}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                  style={{
+                    backgroundColor: `${COLORS[i % COLORS.length]}15`,
+                    color: COLORS[i % COLORS.length],
+                    border: `1px solid ${COLORS[i % COLORS.length]}30`,
+                  }}
+                >
+                  {cat}
+                  <span className="font-bold">{count}</span>
+                </span>
+              ))}
+          </div>
+        </Card>
+      )}
     </div>
   );
 };

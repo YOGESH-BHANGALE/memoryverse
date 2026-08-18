@@ -14,6 +14,7 @@ const statCards: { label: string; icon: string; category: EntityCategory }[] = [
   { label: "Certifications", icon: "📜", category: "certification" },
   { label: "Internships", icon: "🏢", category: "internship" },
   { label: "Achievements", icon: "🏆", category: "achievement" },
+  { label: "Academics", icon: "🎓", category: "academics" },
 ];
 
 export default function DashboardPage() {
@@ -120,7 +121,7 @@ export default function DashboardPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 md:grid-cols-5 gap-4"
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4"
       >
         {statCards.map((stat, i) => (
           <motion.div
@@ -132,9 +133,15 @@ export default function DashboardPage() {
           >
             <Card hover className="text-center py-4">
               <span className="text-3xl">{stat.icon}</span>
-              <p className="mt-2 text-sm font-medium text-dark-200">
-                {stat.label}
+              {/* Counts come from identity.category_counts, which always
+                  carries every category — so `?? 0` only fires against an
+                  older backend, never for a genuinely empty category. */}
+              <p className="mt-1 text-2xl font-bold text-white">
+                {profileLoading
+                  ? "—"
+                  : profile?.category_counts?.[stat.category] ?? 0}
               </p>
+              <p className="text-sm font-medium text-dark-200">{stat.label}</p>
               <Badge category={stat.category} className="mt-2" />
             </Card>
           </motion.div>
@@ -150,7 +157,10 @@ export default function DashboardPage() {
         <h2 className="text-lg font-semibold text-white mb-4">
           📊 Skills Overview
         </h2>
-        <SkillGraph skills={skillsData} />
+        <SkillGraph
+          skills={skillsData}
+          total={profile?.category_counts?.skill}
+        />
       </motion.div>
 
       {/* Quick actions */}
@@ -163,10 +173,11 @@ export default function DashboardPage() {
           <h3 className="text-lg font-semibold text-white mb-4">
             Quick Actions
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             {[
               { href: "/upload", icon: "📤", label: "Upload Document" },
               { href: "/timeline", icon: "📅", label: "View Timeline" },
+              { href: "/graph", icon: "🕸️", label: "Knowledge Map" },
               { href: "/search", icon: "🔍", label: "Ask MemoryVerse" },
             ].map((action) => (
               <a

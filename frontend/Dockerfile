@@ -7,6 +7,12 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# NEXT_PUBLIC_* are inlined into the client bundle at BUILD time, so the backend
+# origin must be supplied here, not at runtime. Left empty, src/lib/api.ts falls
+# back to the hosted backend for any non-localhost origin. Override for a real
+# deploy:  docker build --build-arg NEXT_PUBLIC_API_URL=https://<backend-host>
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build
 
 FROM node:20-alpine AS runner

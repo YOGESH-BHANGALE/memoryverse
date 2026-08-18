@@ -1,0 +1,33 @@
+# Root-level ignore, used when the Docker build context is the repo root.
+# Backend/ and frontend/ have their own .dockerignore for their own contexts.
+
+.git/
+.github/
+
+# Secrets — never bake real credentials into an image layer
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.local.example
+
+# Virtualenvs & node deps (rebuilt in-image; host copies are OS-specific)
+**/venv/
+**/.venv/
+**/node_modules/
+**/.next/
+
+# Caches / bytecode
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+
+# Local, ephemeral, or regenerated data
+**/chroma_db/
+**/uploads/
+**/backups/
+
+# Scratch artifacts
+*.output
+*.log
+.DS_Store

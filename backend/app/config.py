@@ -16,7 +16,15 @@ class Settings(BaseSettings):
 
     # ── Groq & HuggingFace ──────────────────────────────────────────────
     groq_api_key: str = ""
-    groq_model: str = "llama-3.3-70b-versatile"
+    # Groq retires models without notice: the previous default,
+    # llama-3.3-70b-versatile, started returning 404 model_not_found, which
+    # silently broke both entity extraction and RAG answers while retrieval kept
+    # working. Verify a model is still served (GET /openai/v1/models) before
+    # changing this.
+    groq_model: str = "openai/gpt-oss-120b"
+    # Used only when the primary model errors. Deliberately a different model so
+    # a single model's retirement or rate limit does not take out both.
+    groq_fallback_model: str = "openai/gpt-oss-20b"
     hf_embedding_model: str = "all-MiniLM-L6-v2"
 
     # ── ChromaDB ────────────────────────────────────────────────────────

@@ -11,8 +11,16 @@ from app.core.vectordb.embeddings import EmbeddingService
 from app.core.vectordb.relations import RelationshipEngine
 from app.utils.logger import logger
 
-async def seed():
-    print("Seeding demo data...")
+# A fixed, non-"default" demo identity. The frontend ignores the literal
+# "default" and mints a random UUID, so anything seeded under "default" is
+# unreachable in the UI. Seeding under a real id — and printing the URL that
+# pins it (?user=<id>) — makes this script a working one-command demo setup.
+DEFAULT_DEMO_USER = "11111111-1111-4111-8111-111111111111"
+FRONTEND_ORIGIN = os.getenv("MEMORYVERSE_FRONTEND_ORIGIN", "http://localhost:3001")
+
+
+async def seed(user_id: str):
+    print(f"Seeding demo data under user_id={user_id} ...")
     extraction = ExtractionResult(
         certifications=[
             Certification(name="AWS Certified Solutions Architect", issuer="Amazon Web Services", date="2024-05", credential_id="AWS-1234")
@@ -79,14 +87,24 @@ async def seed():
     print(f"Categorized {len(entities)} entities.")
 
     embedding_svc = EmbeddingService()
-    await embedding_svc.store_entities(entities, "default")
+    await embedding_svc.store_entities(entities, user_id)
     print("Stored embeddings in ChromaDB.")
 
     relation_engine = RelationshipEngine()
-    relations = relation_engine.build_relations(entities)
-    relation_engine.store_relations(entities, relations)
-    print(f"Stored {len(relations)} relations.")
+    graph = relation_engine.rebuild_user_graph(user_id)
+    edge_count = len(getattr(graph, "edges", []) or [])
+    print(f"Built and cached the knowledge graph ({edge_count} edges).")
     print("Done!")
+    print("\nOpen the demo (this URL pins the seeded user automatically):")
+    print(f"  {FRONTEND_ORIGIN}/dashboard?user={user_id}")
 
 if __name__ == "__main__":
-    asyncio.run(seed())
+    uid = (
+        sys.argv[1] if len(sys.argv) > 1
+        else os.getenv("MEMORYVERSE_DEMO_USER") or DEFAULT_DEMO_USER
+    )
+    if uid == "default":
+        print("Refusing to seed under 'default' — the frontend ignores it and the UI would look empty.")
+        print(f"Pass a real id, e.g.:  python scripts/seed_demo.py {DEFAULT_DEMO_USER}")
+        sys.exit(1)
+    asyncio.run(seed(uid))
