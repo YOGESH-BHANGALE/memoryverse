@@ -113,7 +113,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
     try {
       set({ uploadProgress: "Processing with AI…" });
-      const result = await uploadFile(file, get().userId);
+      const result = await uploadFile(file, get().userId, (attempt) => {
+        // Free-tier backend sleeps when idle; the first request wakes it. Tell
+        // the user why we're pausing instead of letting it look frozen.
+        set({
+          uploadProgress: `Waking the server (free tier sleeps when idle)… retry ${attempt}`,
+        });
+      });
       set({ uploadResult: result, uploadLoading: false, uploadProgress: "Done" });
       // Refresh profile after upload
       get().fetchProfile();
@@ -136,7 +142,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
     try {
       set({ uploadProgress: "Processing with AI…" });
-      const result = await uploadLink(url, get().userId);
+      const result = await uploadLink(url, get().userId, (attempt) => {
+        set({
+          uploadProgress: `Waking the server (free tier sleeps when idle)… retry ${attempt}`,
+        });
+      });
       set({ uploadResult: result, uploadLoading: false, uploadProgress: "Done" });
       get().fetchProfile();
     } catch (err: any) {

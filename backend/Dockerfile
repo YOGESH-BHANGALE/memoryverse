@@ -11,6 +11,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pre-download the ONNX embedding model (all-MiniLM-L6-v2, ~80 MB) so it is
+# baked into the image. Otherwise chromadb fetches it on the first request of
+# every cold start — slow, and a runtime network dependency that can fail on
+# the free tier. Caches to /root/.cache/chroma, which is read back at runtime.
+RUN python -c "from chromadb.utils import embedding_functions as ef; ef.DefaultEmbeddingFunction()(['warmup'])"
+
 # Copy application
 COPY . .
 

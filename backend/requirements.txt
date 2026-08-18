@@ -1,6 +1,3 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.4.1+cpu
-
 # Core
 fastapi==0.115.0
 uvicorn[standard]==0.30.0
@@ -15,15 +12,20 @@ pdfplumber==0.11.4
 python-docx==1.1.2
 
 # AI / LLM
+# The LLM is Groq, called over its API — there is no local model, so PyTorch,
+# transformers, and sentence-transformers are deliberately NOT installed. Their
+# combined resident footprint (~300-400 MB) overran the 512 MB free-tier worker
+# and OOM-killed it mid-upload. Embeddings come from chromadb's ONNX backend
+# (below) instead. Do not re-add torch/sentence-transformers without moving to a
+# larger instance — see app/core/vectordb/embeddings.py and text_splitter.py.
 langchain==0.3.0
 langchain-groq
-langchain-huggingface
-sentence-transformers
 langchain-community==0.3.0
 langchain-text-splitters==0.3.0
 tiktoken==0.7.0
 
-# Vector DB
+# Vector DB — also our embedding backend. chromadb bundles onnxruntime +
+# tokenizers, giving all-MiniLM-L6-v2 embeddings with zero PyTorch.
 chromadb==0.5.5
 
 # Search / Retrieval

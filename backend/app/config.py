@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     # a single model's retirement or rate limit does not take out both.
     groq_fallback_model: str = "openai/gpt-oss-20b"
     hf_embedding_model: str = "all-MiniLM-L6-v2"
+    # Embedding backend. The default ONNX path (ChromaDB's built-in
+    # all-MiniLM-L6-v2) needs no PyTorch, so the resident footprint stays small
+    # enough for a 512 MB free-tier container. Loading torch there instead left
+    # no headroom and OOM-killed the worker mid-upload (a 502 on /api/ingest).
+    # Set USE_TORCH_EMBEDDINGS=true only where memory is not the constraint.
+    use_torch_embeddings: bool = False
 
     # ── ChromaDB ────────────────────────────────────────────────────────
     chroma_persist_dir: str = "./chroma_db"

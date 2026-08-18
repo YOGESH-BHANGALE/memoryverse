@@ -4,6 +4,8 @@ Ingest API — file upload and processing pipeline.
 
 from __future__ import annotations
 
+import gc
+
 from fastapi import APIRouter, File, UploadFile, HTTPException, Body
 from fastapi.responses import JSONResponse
 import httpx
@@ -134,6 +136,12 @@ async def upload_file(file: UploadFile = File(...), user_id: str = "default"):
             job_id=job_id, status=JobStatus.FAILED, progress=str(exc)
         )
         raise HTTPException(status_code=500, detail=f"Ingestion failed: {exc}")
+    finally:
+        # Reclaim transient buffers (file bytes, embedding batches, graph
+        # scratch) between uploads. One worker serves many requests over its
+        # life on the free tier, so releasing promptly keeps peak RSS clear of
+        # the 512 MB ceiling that otherwise OOM-kills the worker mid-upload.
+        gc.collect()
 
 
 @router.post("/link", response_model=IngestionResult)
@@ -243,6 +251,8 @@ async def ingest_link(request: LinkIngestionRequest, user_id: str = "default"):
             job_id=job_id, status=JobStatus.FAILED, progress=str(exc)
         )
         raise HTTPException(status_code=500, detail=f"Link ingestion failed: {exc}")
+    finally:
+        gc.collect()
 
 
 @router.get("/status/{job_id}", response_model=IngestionStatusResponse)

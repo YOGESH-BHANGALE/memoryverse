@@ -37,32 +37,87 @@ const client = axios.create({
   timeout: 120_000, // 2 minutes for large uploads
 });
 
+// ── Resilient request wrapper ────────────────────────────────────────────
+
+/**
+ * Transient failures worth retrying against the free-tier backend:
+ *  - It spins down after ~15 min idle; the first request wakes it (a ~30-60s
+ *    cold start) and can time out or briefly 502 before uvicorn is listening.
+ *  - A worker restart window returns 502/503 for a few seconds.
+ * All clear on their own, so a short backoff turns them into a seamless wait
+ * instead of a hard error the user sees.
+ */
+const RETRYABLE_STATUS = new Set([502, 503, 504]);
+const RETRY_DELAYS_MS = [3_000, 8_000, 15_000];
+
+function isRetryable(err: any): boolean {
+  // No `response` means the request never got an HTTP reply — network error or
+  // a timeout (axios sets code "ECONNABORTED"), both typical of a cold start.
+  if (!err?.response) return true;
+  return RETRYABLE_STATUS.has(err.response.status);
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Fired before each backoff wait so callers can explain the pause. */
+export type RetryNotice = (attempt: number, waitMs: number) => void;
+
+/**
+ * Run `fn`, retrying transient free-tier failures with a fixed backoff.
+ *
+ * Safe for uploads specifically because ingestion is idempotent: chunk and
+ * entity IDs are deterministic, so a re-run upserts over the same rows rather
+ * than duplicating them. And on Render a 502/503 means the worker died before
+ * responding — the pipeline did not complete — so there is nothing to undo.
+ */
+async function withRetry<T>(fn: () => Promise<T>, onRetry?: RetryNotice): Promise<T> {
+  let lastErr: any;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt >= RETRY_DELAYS_MS.length || !isRetryable(err)) throw err;
+      const waitMs = RETRY_DELAYS_MS[attempt];
+      onRetry?.(attempt + 1, waitMs);
+      await sleep(waitMs);
+    }
+  }
+  throw lastErr;
+}
+
 // ── Ingestion ──────────────────────────────────────────────────────────
 
 export async function uploadFile(
   file: File,
-  userId: string = getOrCreateUserId()
+  userId: string = getOrCreateUserId(),
+  onRetry?: RetryNotice
 ): Promise<IngestionResult> {
   const formData = new FormData();
   formData.append("file", file);
-  const { data } = await client.post<IngestionResult>(
-    `/api/ingest/upload?user_id=${encodeURIComponent(userId)}`,
-    formData,
-    { headers: { "Content-Type": "multipart/form-data" } }
-  );
-  return data;
+  return withRetry(async () => {
+    const { data } = await client.post<IngestionResult>(
+      `/api/ingest/upload?user_id=${encodeURIComponent(userId)}`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+    return data;
+  }, onRetry);
 }
 
 export async function uploadLink(
   url: string,
-  userId: string = getOrCreateUserId()
+  userId: string = getOrCreateUserId(),
+  onRetry?: RetryNotice
 ): Promise<IngestionResult> {
-  const { data } = await client.post<IngestionResult>(
-    `/api/ingest/link?user_id=${encodeURIComponent(userId)}`,
-    { url },
-    { headers: { "Content-Type": "application/json" } }
-  );
-  return data;
+  return withRetry(async () => {
+    const { data } = await client.post<IngestionResult>(
+      `/api/ingest/link?user_id=${encodeURIComponent(userId)}`,
+      { url },
+      { headers: { "Content-Type": "application/json" } }
+    );
+    return data;
+  }, onRetry);
 }
 
 export async function getIngestionStatus(

@@ -1,25 +1,39 @@
 """
-Embeddings — text chunking and embedding generation using OpenAI via LangChain.
+Embeddings — text chunking and embedding generation.
+
+Two backends produce the same all-MiniLM-L6-v2 vectors:
+
+* ONNX (default): ChromaDB's built-in embedding function. No PyTorch, small
+  resident memory — the only backend that fits a 512 MB free-tier container.
+* PyTorch: sentence-transformers via HuggingFaceEmbeddings. Heavier; opt in
+  with USE_TORCH_EMBEDDINGS=true where memory is not the constraint.
+
+Both docs and queries always go through the *same* instance, so cosine
+similarity stays consistent regardless of which backend is active.
 """
 
 from __future__ import annotations
 
 from typing import Any
-import torch
 
 from langchain_core.embeddings import Embeddings
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.config import get_settings
 from app.models.schemas import CategorisedEntity, EntityCategory, RawDocument
 from app.models.entities import entity_to_document
 from app.core.vectordb.client import ChromaClient, collection_for_category
+from app.core.vectordb.text_splitter import RecursiveCharacterTextSplitter
 from app.utils.logger import logger
 
 
-class ONNXEmbeddingsFallback(Embeddings):
-    """Fast, zero-PyTorch fallback embedding model using ONNX all-MiniLM-L6-v2."""
+class ONNXEmbeddings(Embeddings):
+    """
+    Zero-PyTorch embedding backend using ONNX all-MiniLM-L6-v2.
+
+    This is ChromaDB's built-in ``DefaultEmbeddingFunction`` — the same model as
+    the sentence-transformers path but via onnxruntime, so it needs no torch and
+    keeps the worker's resident memory well inside a 512 MB free-tier container.
+    """
 
     def __init__(self) -> None:
         from chromadb.utils import embedding_functions
@@ -45,25 +59,13 @@ class EmbeddingService:
     """
     Handles:
     1. Chunking raw document text (512 tokens, 50 overlap)
-    2. Generating embeddings via text-embedding-3-small
+    2. Generating all-MiniLM-L6-v2 embeddings (ONNX by default, see config)
     3. Storing chunks + entity docs into ChromaDB with rich metadata
     """
 
     def __init__(self) -> None:
         settings = get_settings()
-        try:
-            emb = HuggingFaceEmbeddings(
-                model_name=settings.hf_embedding_model,
-            )
-            emb.embed_query("test")
-            self.embeddings = emb
-            logger.info("Using HuggingFaceEmbeddings (SentenceTransformers)")
-        except Exception as e:
-            logger.warning(
-                f"HuggingFaceEmbeddings warning ({e}). "
-                "Falling back to ONNX DefaultEmbeddingFunction..."
-            )
-            self.embeddings = ONNXEmbeddingsFallback()
+        self.embeddings = self._build_embeddings(settings)
 
         self.splitter = RecursiveCharacterTextSplitter(
             chunk_size=512,
@@ -72,6 +74,41 @@ class EmbeddingService:
             separators=["\n\n", "\n", ". ", " ", ""],
         )
         self.chroma = ChromaClient()
+
+    @staticmethod
+    def _build_embeddings(settings) -> Embeddings:
+        """
+        Select the embedding backend, defaulting to ONNX.
+
+        PyTorch's resident footprint (~300-400 MB) on its own overruns what a
+        512 MB free-tier worker can spare once the rest of the app is loaded, so
+        processing a real document OOM-kills the worker — observed live as a 502
+        on ``/api/ingest/upload``. ONNX produces the same all-MiniLM-L6-v2
+        vectors without importing torch at all, so it is the default; the torch
+        path is opt-in for environments with memory to spare.
+        """
+        if settings.use_torch_embeddings:
+            try:
+                # Imported lazily: this module pulls in sentence-transformers and
+                # torch, which must not be loaded at all on the default path.
+                from langchain_huggingface import HuggingFaceEmbeddings
+
+                emb = HuggingFaceEmbeddings(model_name=settings.hf_embedding_model)
+                emb.embed_query("warmup")
+                logger.info("Using HuggingFaceEmbeddings (PyTorch/SentenceTransformers)")
+                return emb
+            except Exception as e:
+                logger.warning(
+                    f"HuggingFaceEmbeddings unavailable ({e}); "
+                    "falling back to the ONNX embedding backend."
+                )
+
+        emb = ONNXEmbeddings()
+        # Force the ONNX model to download/load now rather than on the first
+        # upload, so a cold request pays for retrieval only, not model init.
+        emb.embed_query("warmup")
+        logger.info("Using ONNX DefaultEmbeddingFunction (no PyTorch)")
+        return emb
 
     # ── Chunk & store raw document text ─────────────────────────────────
 
