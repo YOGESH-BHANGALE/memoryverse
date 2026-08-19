@@ -35,9 +35,14 @@ async def lifespan(app: FastAPI):
     
     # Pre-warm embedding service & ChromaDB client on startup
     from app.api.deps import get_embedding_service, get_chroma_client
+    from app.utils.memory import trim_memory
     try:
         get_embedding_service()
         get_chroma_client()
+        # The ONNX warmup inference leaves freed transients in glibc's arena,
+        # inflating the idle baseline the first upload has to fit under. Trim it
+        # back before we start serving so every request sees the true floor.
+        trim_memory()
         logger.info("Pre-warmed EmbeddingService & ChromaClient weights successfully.")
     except Exception as e:
         logger.warning(f"EmbeddingService pre-warm warning: {e}")

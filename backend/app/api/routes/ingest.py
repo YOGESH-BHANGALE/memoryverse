@@ -4,8 +4,6 @@ Ingest API — file upload and processing pipeline.
 
 from __future__ import annotations
 
-import gc
-
 from fastapi import APIRouter, File, UploadFile, HTTPException, Body
 from fastapi.responses import JSONResponse
 import httpx
@@ -22,6 +20,7 @@ from app.core.ingestion.parser import parse_file
 from app.models.schemas import IngestionResult, IngestionStatusResponse, JobStatus, LinkIngestionRequest
 from app.utils.helpers import detect_file_type, generate_job_id, url_to_filename
 from app.utils.logger import logger
+from app.utils.memory import trim_memory
 
 router = APIRouter(prefix="/api/ingest", tags=["Ingestion"])
 
@@ -138,10 +137,12 @@ async def upload_file(file: UploadFile = File(...), user_id: str = "default"):
         raise HTTPException(status_code=500, detail=f"Ingestion failed: {exc}")
     finally:
         # Reclaim transient buffers (file bytes, embedding batches, graph
-        # scratch) between uploads. One worker serves many requests over its
-        # life on the free tier, so releasing promptly keeps peak RSS clear of
-        # the 512 MB ceiling that otherwise OOM-kills the worker mid-upload.
-        gc.collect()
+        # scratch) between uploads, AND hand glibc's freed heap back to the OS.
+        # One worker serves many requests on the free tier; the probe showed a
+        # plain gc.collect() left RSS ~65 MB above idle after an upload, so the
+        # NEXT upload started near the 512 MB ceiling and OOM-killed. trim_memory
+        # adds malloc_trim(0) so each upload starts from the same low baseline.
+        trim_memory()
 
 
 @router.post("/link", response_model=IngestionResult)
@@ -252,7 +253,7 @@ async def ingest_link(request: LinkIngestionRequest, user_id: str = "default"):
         )
         raise HTTPException(status_code=500, detail=f"Link ingestion failed: {exc}")
     finally:
-        gc.collect()
+        trim_memory()
 
 
 @router.get("/status/{job_id}", response_model=IngestionStatusResponse)

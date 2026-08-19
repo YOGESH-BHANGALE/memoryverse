@@ -33,7 +33,7 @@ router = APIRouter(prefix="/api/diag", tags=["Diagnostics"])
 # Bumped on every deploy. ``/`` returns a static "1.0.0", so this is the only
 # way to confirm from outside that a push actually replaced the running image
 # (a failed Render build silently keeps serving the previous one).
-BUILD_MARKER = "diag-2-llmcheck-batch8"
+BUILD_MARKER = "diag-3-memtrim"
 
 # Only the user_id the probe writes under, kept separate so diagnostic runs
 # never pollute the demo identity's dashboard/graph.
@@ -381,10 +381,13 @@ async def probe(file: UploadFile = File(...)) -> dict:
         lambda: get_relation_engine().rebuild_user_graph(PROBE_USER),
     )
 
-    import gc
+    # gc alone left ~65 MB stranded in glibc's arena last run; trim_memory adds
+    # malloc_trim(0). Comparing rebuild_graph → after_trim shows how much RSS
+    # actually returns to the OS — the number that decides if the next upload fits.
+    from app.utils.memory import trim_memory
 
-    gc.collect()
-    mark("after_gc")
+    trim_memory()
+    mark("after_trim")
 
     return {
         "build_marker": BUILD_MARKER,

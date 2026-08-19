@@ -26,6 +26,56 @@ from app.core.vectordb.text_splitter import RecursiveCharacterTextSplitter
 from app.utils.logger import logger
 
 
+def _cap_onnx_runtime_threads() -> None:
+    """
+    Force onnxruntime to a single intra/inter-op thread.
+
+    Render grants ~0.1 CPU but exposes the host's 8 cores, and chromadb 0.5.5
+    builds its ``InferenceSession`` without setting ``intra_op_num_threads`` — so
+    ORT sizes its thread pool from those 8 visible cores. Each pool thread
+    carries its own allocator arena (several MB of resident memory), bought for
+    parallelism we cannot use on a fraction of one core. On a 512 MB worker that
+    waste is the difference between an upload that fits and one that OOM-kills.
+
+    chromadb owns the session, so the clean interception point is the constructor
+    itself: every ``InferenceSession`` — however chromadb calls it — routes
+    through this wrapper, which caps the thread counts only when they are still
+    at ORT's "use all cores" default (0). Fully defensive: any failure leaves ORT
+    exactly as it was, because a broken embedding backend takes the whole app
+    down, which is strictly worse than using too much memory.
+    """
+    try:
+        import onnxruntime as ort
+    except Exception:  # noqa: BLE001 - ORT absent (e.g. torch backend); nothing to cap
+        return
+    if getattr(ort.InferenceSession, "_mv_thread_capped", False):
+        return
+
+    _orig = ort.InferenceSession
+
+    def _capped(*args, **kwargs):  # type: ignore[no-untyped-def]
+        try:
+            # sess_options may arrive positionally (2nd arg) or by keyword.
+            so = None
+            if len(args) >= 2 and isinstance(args[1], ort.SessionOptions):
+                so = args[1]
+            elif kwargs.get("sess_options") is not None:
+                so = kwargs["sess_options"]
+            else:
+                so = ort.SessionOptions()
+                kwargs["sess_options"] = so
+            if so.intra_op_num_threads == 0:
+                so.intra_op_num_threads = 1
+            if so.inter_op_num_threads == 0:
+                so.inter_op_num_threads = 1
+        except Exception:  # noqa: BLE001 - never block session creation
+            pass
+        return _orig(*args, **kwargs)
+
+    _capped._mv_thread_capped = True  # type: ignore[attr-defined]
+    ort.InferenceSession = _capped  # type: ignore[assignment]
+
+
 class ONNXEmbeddings(Embeddings):
     """
     Zero-PyTorch embedding backend using ONNX all-MiniLM-L6-v2.
@@ -42,13 +92,22 @@ class ONNXEmbeddings(Embeddings):
     # kills the worker outright and surfaces as a 502 mid-upload.
     #
     # We cannot pass a batch size through ``__call__``, but feeding the encoder
-    # smaller slices bounds what it allocates internally: at 8, that same peak is
-    # ~25 MB. Total CPU work is unchanged (the free tier's 0.1 CPU is the real
-    # throughput limit), so this costs nothing measurable and buys ~75 MB of
-    # headroom on the hottest path in the app.
-    _BATCH_SIZE = 8
+    # smaller slices bounds what it allocates internally. This matters twice
+    # over: ORT's arena is a high-water-mark allocator that never shrinks, so the
+    # LARGEST batch ever seen sets the worker's permanent memory floor — not just
+    # a momentary transient. At 4, that peak is ~12 MB (vs ~101 MB at 32). Total
+    # CPU work is unchanged (0.1 CPU is the real throughput limit), so bounding
+    # the batch costs nothing measurable and keeps the resident floor low enough
+    # that successive uploads don't stack into the ceiling. See probe results in
+    # docs/DEPLOYMENT.md.
+    _BATCH_SIZE = 4
 
     def __init__(self) -> None:
+        # Cap ORT threads before chromadb lazily builds its session on first
+        # inference — see _cap_onnx_runtime_threads for why 8 host cores vs
+        # 0.1 granted CPU makes this a memory fix, not a speed one.
+        _cap_onnx_runtime_threads()
+
         from chromadb.utils import embedding_functions
 
         self._ef = embedding_functions.DefaultEmbeddingFunction()
