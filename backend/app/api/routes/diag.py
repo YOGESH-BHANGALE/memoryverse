@@ -33,7 +33,7 @@ router = APIRouter(prefix="/api/diag", tags=["Diagnostics"])
 # Bumped on every deploy. ``/`` returns a static "1.0.0", so this is the only
 # way to confirm from outside that a push actually replaced the running image
 # (a failed Render build silently keeps serving the previous one).
-BUILD_MARKER = "onnx-no-torch-diag-1"
+BUILD_MARKER = "diag-2-llmcheck-batch8"
 
 # Only the user_id the probe writes under, kept separate so diagnostic runs
 # never pollute the demo identity's dashboard/graph.
@@ -187,9 +187,86 @@ async def diag() -> dict:
             # Presence only — never the key itself.
             "groq_key_present": bool(settings.groq_api_key),
             "groq_model": settings.groq_model,
+            "groq_fallback_model": settings.groq_fallback_model,
             "use_torch_embeddings": settings.use_torch_embeddings,
         },
         "loaded_module_count": len(sys.modules),
+    }
+
+
+@router.get("/llm")
+async def diag_llm() -> dict:
+    """
+    Call Groq with the configured primary and fallback models and report what
+    happens to each.
+
+    Worth its own endpoint because a dead model is invisible from the outside:
+    extraction catches the failure and returns an empty result, so the upload
+    still answers ``200`` with ``entities_extracted: 0`` and nothing indicates
+    the model was the cause. Env vars set in the host dashboard can also point at
+    a model the code default never mentions, so the *live* value is what matters.
+
+    Reports status and error text per model. Never returns the API key.
+    """
+    import httpx
+
+    from app.config import get_settings
+
+    settings = get_settings()
+    key = settings.groq_api_key
+    if not key:
+        return {"build_marker": BUILD_MARKER, "error": "GROQ_API_KEY is not set"}
+
+    results = []
+    available: list[str] | None = None
+    async with httpx.AsyncClient(timeout=30) as client:
+        try:
+            r = await client.get(
+                "https://api.groq.com/openai/v1/models",
+                headers={"Authorization": f"Bearer {key}"},
+            )
+            if r.status_code == 200:
+                available = sorted(m["id"] for m in r.json().get("data", []))
+            else:
+                results.append({"list_models_status": r.status_code, "body": r.text[:200]})
+        except Exception as exc:  # noqa: BLE001
+            results.append({"list_models_error": f"{type(exc).__name__}: {exc}"[:200]})
+
+        for label, model in (
+            ("primary", settings.groq_model),
+            ("fallback", settings.groq_fallback_model),
+        ):
+            if not model:
+                continue
+            entry: dict = {"role": label, "model": model}
+            if available is not None:
+                entry["in_model_list"] = model in available
+            try:
+                r = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": model,
+                        "messages": [{"role": "user", "content": "say OK"}],
+                        "max_tokens": 5,
+                    },
+                )
+                entry["status"] = r.status_code
+                entry["ok"] = r.status_code == 200
+                if r.status_code != 200:
+                    entry["error"] = r.text[:300]
+            except Exception as exc:  # noqa: BLE001
+                entry["ok"] = False
+                entry["error"] = f"{type(exc).__name__}: {exc}"[:300]
+            results.append(entry)
+
+    return {
+        "build_marker": BUILD_MARKER,
+        "available_models": available,
+        "results": results,
     }
 
 
@@ -280,24 +357,29 @@ async def probe(file: UploadFile = File(...)) -> dict:
         ):
             entities = state["categorize"] or []
 
-    if entities or ok:
+    # Storage runs regardless of extraction outcome. Embedding + Chroma writes are
+    # the hottest memory path (that ~101 MB ONNX transient), and it is exactly the
+    # data we need even — especially — when the LLM stage failed. Gating these on a
+    # successful extract, as an earlier version did, hid the one measurement the
+    # probe exists to take. store_raw_chunks needs only the parsed doc; store_entities
+    # is the sole stage that requires entities.
+    await run(
+        "store_raw_chunks",
+        lambda: embedding_svc.store_raw_chunks(
+            raw_doc, PROBE_USER, file_id="diag-probe"
+        ),
+    )
+    if entities:
         await run(
-            "store_raw_chunks",
-            lambda: embedding_svc.store_raw_chunks(
-                raw_doc, PROBE_USER, file_id="diag-probe"
+            "store_entities",
+            lambda: embedding_svc.store_entities(
+                entities, PROBE_USER, file_id="diag-probe"
             ),
         )
-        if entities:
-            await run(
-                "store_entities",
-                lambda: embedding_svc.store_entities(
-                    entities, PROBE_USER, file_id="diag-probe"
-                ),
-            )
-        await run(
-            "rebuild_graph",
-            lambda: get_relation_engine().rebuild_user_graph(PROBE_USER),
-        )
+    await run(
+        "rebuild_graph",
+        lambda: get_relation_engine().rebuild_user_graph(PROBE_USER),
+    )
 
     import gc
 

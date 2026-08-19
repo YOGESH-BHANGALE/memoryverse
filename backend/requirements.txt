@@ -18,11 +18,16 @@ python-docx==1.1.2
 # and OOM-killed it mid-upload. Embeddings come from chromadb's ONNX backend
 # (below) instead. Do not re-add torch/sentence-transformers without moving to a
 # larger instance — see app/core/vectordb/embeddings.py and text_splitter.py.
-langchain==0.3.0
-langchain-groq
-langchain-community==0.3.0
-langchain-text-splitters==0.3.0
-tiktoken==0.7.0
+#
+# Only two namespaces are imported: langchain_core (prompts, Embeddings base)
+# and langchain_groq (ChatGroq). The `langchain` meta-package, langchain-community
+# (which drags in aiohttp, SQLAlchemy, dataclasses-json), langchain-text-splitters
+# and tiktoken were installed but never imported anywhere in app/ — dropped to cut
+# image size and build time. Note this does NOT reduce resident memory: a package
+# that is never imported costs disk, not RSS. Chunking is vendored in
+# app/core/vectordb/text_splitter.py, which is why text-splitters can go.
+langchain-core>=0.3.0,<0.4.0
+langchain-groq>=0.2.0,<0.3.0
 
 # Vector DB — also our embedding backend. chromadb bundles onnxruntime +
 # tokenizers, giving all-MiniLM-L6-v2 embeddings with zero PyTorch.
@@ -30,10 +35,7 @@ chromadb==0.5.5
 
 # Search / Retrieval
 rank-bm25==0.2.2
-numpy>=1.26.0
-
-# Streaming
-sse-starlette==2.1.0
+numpy>=1.26.0,<2.0.0
 
 # Utilities
 uuid6==2024.7.10

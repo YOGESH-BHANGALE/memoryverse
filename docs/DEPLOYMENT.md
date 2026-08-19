@@ -84,6 +84,35 @@ git push origin main
 - **Data is temporary.** Render's free tier wipes uploaded data on restart/sleep. Upload fresh right before demoing. To persist data, add a paid Render **Disk** or a hosted vector DB.
 - **Cold starts.** First request after idle takes ~30–60s while the server wakes.
 - **CORS** is already open (`*`) on the backend, so any Vercel domain can call it — no extra config.
+- **512 MB is the real constraint.** The container is memory-capped, and a worker that exceeds it is OOM-killed rather than returning an error — which shows up as a **502 with an empty body**, and takes the whole service down until Render restarts it. A caught application error would be a 500 with JSON, so an empty 502 always means "the process died," not "the code raised." This is why the runtime ships without PyTorch and bounds the embedding batch size.
+
+---
+
+## Diagnosing the live backend
+
+The free tier gives no shell, no metrics and no retained logs, and `/` returns a
+hardcoded `1.0.0` — so you cannot tell from outside which image is running. Two
+endpoints exist for that:
+
+```bash
+curl -s https://memoryverse-backend-bju3.onrender.com/api/diag
+```
+
+Reports `build_marker` (bump it in `backend/app/api/routes/diag.py` on each
+deploy — this is how you confirm a push actually replaced the running image,
+since **a failed Render build silently keeps serving the previous one**), plus
+the cgroup memory limit/current/peak, RSS, CPU count vs. granted affinity,
+thread caps, and whether torch is installed or loaded. Credentials appear only
+as `groq_key_present: true/false` — never as values.
+
+```bash
+curl -s -X POST https://memoryverse-backend-bju3.onrender.com/api/diag/probe -F "file=@resume.docx"
+```
+
+Walks the ingest pipeline one stage at a time (parse → extract → categorize →
+embed → store → graph), reporting memory and elapsed time after each, so you can
+see *which* stage consumes the headroom. It writes under a separate
+`__diag_probe__` user, so it never pollutes the demo identity.
 
 ---
 

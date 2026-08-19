@@ -154,23 +154,64 @@ class EntityExtractor:
     """
     Uses Groq LLM with direct JSON parsing to extract typed entities
     from raw document text.
+
+    Model selection is resilient by construction. Groq retires models without
+    notice — ``llama-3.3-70b-versatile`` started returning 404 model_not_found
+    in production — and the configured model can be overridden by a ``GROQ_MODEL``
+    environment variable that points at a now-dead model, a value we cannot edit
+    from code. So instead of one model with a single fallback, extraction walks an
+    ordered list of candidates and uses the first that answers: the configured
+    primary, the configured fallback, then hardcoded known-good defaults that no
+    env var can clobber. Only if *every* candidate fails do we give up (loudly),
+    so a single retirement can never silently zero out extraction again.
     """
+
+    # Last-resort models, tried after the configured ones. These are hardcoded
+    # precisely so a bad GROQ_MODEL / GROQ_FALLBACK_MODEL env var cannot remove
+    # them from the chain. Update only to models confirmed live via
+    # GET https://api.groq.com/openai/v1/models.
+    _SAFETY_NET_MODELS = ("openai/gpt-oss-120b", "openai/gpt-oss-20b")
 
     def __init__(self) -> None:
         settings = get_settings()
-        self.llm = ChatGroq(
-            model=settings.groq_model,
-            api_key=settings.groq_api_key,
-            temperature=0,
-            max_tokens=4096,
-        )
+        # Ordered and de-duplicated: configured primary, configured fallback,
+        # then the safety net. Deliberately spans more than one model family so
+        # one provider-side retirement or rate-limit can't take out the whole
+        # chain.
+        self._models: list[str] = []
+        seen: set[str] = set()
+        for model in (
+            settings.groq_model,
+            settings.groq_fallback_model,
+            *self._SAFETY_NET_MODELS,
+        ):
+            if model and model not in seen:
+                seen.add(model)
+                self._models.append(model)
+
+        self._api_key = settings.groq_api_key
+        self._llm_cache: dict[str, ChatGroq] = {}
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", _SYSTEM_PROMPT),
             ("human", _HUMAN_PROMPT),
         ])
-        # Use prompt | llm only — parse JSON manually to avoid
-        # langchain-core _type serialization bugs
-        self.chain = self.prompt | self.llm
+
+    def _chain_for(self, model: str):
+        """Build (and memoise) a prompt|llm chain for one model.
+
+        Parse JSON manually rather than piping through an output parser to avoid
+        langchain-core ``_type`` serialization bugs.
+        """
+        llm = self._llm_cache.get(model)
+        if llm is None:
+            llm = ChatGroq(
+                model=model,
+                api_key=self._api_key,
+                temperature=0,
+                max_tokens=4096,
+            )
+            self._llm_cache[model] = llm
+        return self.prompt | llm
 
     async def _invoke_and_parse(self, chain, document_text: str) -> dict[str, Any]:
         """Invoke a prompt|llm chain and extract JSON from the response."""
@@ -181,7 +222,7 @@ class EntityExtractor:
     async def extract(self, document_text: str) -> ExtractionResult:
         """
         Send the document text to the LLM and parse the structured output
-        into an ExtractionResult.
+        into an ExtractionResult, walking the candidate models until one answers.
         """
         logger.info("Starting LLM entity extraction…")
 
@@ -193,32 +234,35 @@ class EntityExtractor:
             )
             document_text = document_text[:max_chars]
 
-        try:
-            raw: dict[str, Any] = await self._invoke_and_parse(
-                self.chain, document_text
-            )
-        except Exception as exc:
-            settings = get_settings()
-            logger.warning(
-                f"Primary LLM model {settings.groq_model} failed ({exc}). "
-                f"Attempting fallback to {settings.groq_fallback_model}..."
-            )
+        last_error: Exception | None = None
+        for idx, model in enumerate(self._models):
             try:
-                fallback_llm = ChatGroq(
-                    model=settings.groq_fallback_model,
-                    api_key=settings.groq_api_key,
-                    temperature=0,
-                    max_tokens=4096,
+                raw: dict[str, Any] = await self._invoke_and_parse(
+                    self._chain_for(model), document_text
                 )
-                fallback_chain = self.prompt | fallback_llm
-                raw = await self._invoke_and_parse(
-                    fallback_chain, document_text
+            except Exception as exc:
+                last_error = exc
+                remaining = len(self._models) - idx - 1
+                logger.warning(
+                    f"Extraction model {model} failed ({type(exc).__name__}: {exc}). "
+                    + (f"Trying next candidate ({remaining} left)…" if remaining else "No candidates left.")
                 )
-            except Exception as exc2:
-                logger.error(f"LLM extraction fallback failed: {exc2}")
-                return ExtractionResult()
+                continue
 
-        return self._parse_result(raw)
+            if idx > 0:
+                logger.warning(
+                    f"Extraction succeeded on fallback model {model} "
+                    f"(candidate #{idx + 1} of {len(self._models)}) — "
+                    f"check the configured GROQ_MODEL is still served."
+                )
+            return self._parse_result(raw)
+
+        logger.error(
+            f"All {len(self._models)} extraction candidate models failed "
+            f"({', '.join(self._models)}); returning empty result. "
+            f"Last error: {last_error}"
+        )
+        return ExtractionResult()
 
     # ── Internal helpers ────────────────────────────────────────────────
 
