@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.api.routes import ingest, timeline, search, identity, relations
+from app.api.routes import ingest, timeline, search, identity, relations, diag
 from app.utils.logger import logger
 
 
@@ -78,6 +78,9 @@ app.include_router(timeline.router)
 app.include_router(search.router)
 app.include_router(identity.router)
 app.include_router(relations.router)
+# Diagnostics: reports which build is live and where memory goes. The free tier
+# offers no shell or metrics, so this is the only view into the container.
+app.include_router(diag.router)
 
 
 # ── File Serving ────────────────────────────────────────────────────────

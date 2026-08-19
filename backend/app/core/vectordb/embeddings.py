@@ -35,14 +35,36 @@ class ONNXEmbeddings(Embeddings):
     keeps the worker's resident memory well inside a 512 MB free-tier container.
     """
 
+    # ChromaDB's ONNX encoder runs an internal batch of 32 and pads every input
+    # to a fixed 256 tokens. For this model (6 layers, 12 heads) the attention
+    # tensor for one full batch is 32 × 12 × 256 × 256 × 4 B ≈ 101 MB — a single
+    # transient big enough to push a 512 MB container into the OOM killer, which
+    # kills the worker outright and surfaces as a 502 mid-upload.
+    #
+    # We cannot pass a batch size through ``__call__``, but feeding the encoder
+    # smaller slices bounds what it allocates internally: at 8, that same peak is
+    # ~25 MB. Total CPU work is unchanged (the free tier's 0.1 CPU is the real
+    # throughput limit), so this costs nothing measurable and buys ~75 MB of
+    # headroom on the hottest path in the app.
+    _BATCH_SIZE = 8
+
     def __init__(self) -> None:
         from chromadb.utils import embedding_functions
 
         self._ef = embedding_functions.DefaultEmbeddingFunction()
+        if self._ef is None:  # thin-client builds return None
+            raise RuntimeError(
+                "chromadb returned no default embedding function "
+                "(thin-client install?); cannot embed without it."
+            )
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        res = self._ef(texts)
-        return [[float(x) for x in vec] for vec in res]
+        out: list[list[float]] = []
+        for start in range(0, len(texts), self._BATCH_SIZE):
+            batch = texts[start : start + self._BATCH_SIZE]
+            for vec in self._ef(batch):
+                out.append([float(x) for x in vec])
+        return out
 
     async def aembed_documents(self, texts: list[str]) -> list[list[float]]:
         return self.embed_documents(texts)
