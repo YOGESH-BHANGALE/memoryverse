@@ -100,7 +100,7 @@ export default function HomePage() {
             variants={fadeUp}
             initial="hidden"
             animate="show"
-            className="relative z-10 flex flex-col sm:flex-row gap-3 sm:gap-4 mt-8 w-full max-w-xs sm:max-w-none"
+            className="relative z-10 flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mt-8 w-full max-w-xs sm:w-auto sm:max-w-none"
           >
             <Link
               href="/upload"
