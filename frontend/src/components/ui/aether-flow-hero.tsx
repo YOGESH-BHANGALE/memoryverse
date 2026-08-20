@@ -62,6 +62,7 @@ const AetherBackground: React.FC<AetherBackgroundProps> = ({
 
     let animationFrameId = 0;
     let particles: Particle[] = [];
+    let lastWidth = window.innerWidth;
     const mouse: Mouse = { x: null, y: null, radius: 180 };
 
     class Particle {
@@ -195,9 +196,17 @@ const AetherBackground: React.FC<AetherBackgroundProps> = ({
     };
 
     const resizeCanvas = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      init();
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      canvas.width = w;
+      canvas.height = h;
+      // Regenerate particles only on a real width change (or first run). Mobile
+      // browsers fire resize when the URL bar shows/hides — that changes only
+      // height, and re-seeding there would make the whole field flicker.
+      if (particles.length === 0 || w !== lastWidth) {
+        init();
+      }
+      lastWidth = w;
       if (prefersReducedMotion) drawFrame(false);
     };
 
@@ -211,6 +220,19 @@ const AetherBackground: React.FC<AetherBackgroundProps> = ({
       mouse.y = null;
     };
 
+    // Touch support so the effect is interactive on phones/tablets too.
+    const handleTouchMove = (event: TouchEvent) => {
+      if (event.touches.length > 0) {
+        mouse.x = event.touches[0].clientX;
+        mouse.y = event.touches[0].clientY;
+      }
+    };
+
+    const handleTouchEnd = () => {
+      mouse.x = null;
+      mouse.y = null;
+    };
+
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
 
@@ -219,6 +241,8 @@ const AetherBackground: React.FC<AetherBackgroundProps> = ({
     } else {
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseout", handleMouseOut);
+      window.addEventListener("touchmove", handleTouchMove, { passive: true });
+      window.addEventListener("touchend", handleTouchEnd);
       animate();
     }
 
@@ -226,6 +250,8 @@ const AetherBackground: React.FC<AetherBackgroundProps> = ({
       window.removeEventListener("resize", resizeCanvas);
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseout", handleMouseOut);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleTouchEnd);
       window.cancelAnimationFrame(animationFrameId);
     };
   }, [colors, lineColor, hoverLineColor, density, maxParticles]);

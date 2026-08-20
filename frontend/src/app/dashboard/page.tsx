@@ -78,16 +78,18 @@ export default function DashboardPage() {
           ) : profile ? (
             <div>
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-2xl shadow-lg shadow-primary-500/20">
+                <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-2xl shadow-lg shadow-primary-500/20">
                   🧠
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold text-white">
+                <div className="min-w-0">
+                  <h2 className="text-xl font-bold text-white truncate">
                     {profile.name || profile.user_id}
                   </h2>
-                  <p className="text-sm text-dark-200">{profile.summary}</p>
+                  <p className="text-sm text-dark-200 line-clamp-2">
+                    {profile.summary}
+                  </p>
                 </div>
-                <div className="ml-auto text-right">
+                <div className="flex-shrink-0 ml-auto text-right">
                   <p className="text-3xl font-bold text-primary-400">
                     {profile.total_entities}
                   </p>

@@ -25,7 +25,7 @@ export default function UploadPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="grid grid-cols-3 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4"
       >
         {[
           { icon: "📕", label: "PDF", desc: "Resumes, certificates, reports" },

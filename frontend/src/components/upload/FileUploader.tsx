@@ -124,17 +124,18 @@ export const FileUploader: React.FC = () => {
         <div className="h-px bg-dark-600 flex-1" />
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <input
           type="url"
           placeholder="https://github.com/username/repo, linkedin, portfolio..."
           value={linkUrl}
           onChange={(e) => setLinkUrl(e.target.value)}
           disabled={uploadLoading}
-          className="flex-1 rounded-xl bg-dark-700/50 border border-dark-400/30 px-4 py-2 text-sm text-white placeholder-dark-400 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all disabled:opacity-50"
+          className="flex-1 min-w-0 rounded-xl bg-dark-700/50 border border-dark-400/30 px-4 py-2 text-sm text-white placeholder-dark-400 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all disabled:opacity-50"
         />
-        <Button 
-          disabled={uploadLoading || !linkUrl.trim()} 
+        <Button
+          className="w-full sm:w-auto"
+          disabled={uploadLoading || !linkUrl.trim()}
           onClick={() => {
             if (linkUrl.trim()) doLinkUpload(linkUrl);
           }}

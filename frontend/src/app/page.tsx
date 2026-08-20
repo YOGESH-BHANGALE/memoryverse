@@ -56,7 +56,7 @@ export default function HomePage() {
 
       <div className="relative z-10 min-h-[85vh] flex flex-col">
         {/* Hero Section */}
-        <div className="flex flex-col items-center justify-center text-center py-16 relative">
+        <div className="flex flex-col items-center justify-center text-center py-12 sm:py-16 relative">
           {/* Logo */}
           <motion.div
             custom={0}
@@ -75,7 +75,7 @@ export default function HomePage() {
             variants={fadeUp}
             initial="hidden"
             animate="show"
-            className="relative z-10 text-5xl md:text-6xl font-extrabold leading-tight"
+            className="relative z-10 text-4xl sm:text-5xl md:text-6xl font-extrabold leading-tight"
           >
             <span className="bg-gradient-to-r from-white via-primary-200 to-accent-200 bg-clip-text text-transparent">
               MemoryVerse AI
@@ -87,7 +87,7 @@ export default function HomePage() {
             variants={fadeUp}
             initial="hidden"
             animate="show"
-            className="relative z-10 mt-4 text-lg text-dark-100 max-w-2xl leading-relaxed"
+            className="relative z-10 mt-4 text-base sm:text-lg text-dark-100 max-w-2xl leading-relaxed"
           >
             Upload your resume, certificates, and project docs — AI extracts,
             categorizes, and connects your professional journey into an interactive
@@ -100,18 +100,18 @@ export default function HomePage() {
             variants={fadeUp}
             initial="hidden"
             animate="show"
-            className="relative z-10 flex gap-4 mt-8"
+            className="relative z-10 flex flex-col sm:flex-row gap-3 sm:gap-4 mt-8 w-full max-w-xs sm:max-w-none"
           >
             <Link
               href="/upload"
-              className="group inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold shadow-lg shadow-primary-500/25 hover:from-primary-700 hover:to-primary-600 transition-all duration-200 hover:shadow-xl hover:shadow-primary-500/30 hover:-translate-y-0.5"
+              className="group inline-flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold shadow-lg shadow-primary-500/25 hover:from-primary-700 hover:to-primary-600 transition-all duration-200 hover:shadow-xl hover:shadow-primary-500/30 hover:-translate-y-0.5"
             >
               <span className="group-hover:rotate-12 transition-transform">📤</span>
               Upload Document
             </Link>
             <Link
               href="/dashboard"
-              className="group inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-dark-600/80 backdrop-blur-sm text-dark-50 font-semibold border border-dark-400 hover:bg-dark-500 transition-all duration-200 hover:-translate-y-0.5"
+              className="group inline-flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3.5 rounded-xl bg-dark-600/80 backdrop-blur-sm text-dark-50 font-semibold border border-dark-400 hover:bg-dark-500 transition-all duration-200 hover:-translate-y-0.5"
             >
               <span className="group-hover:scale-110 transition-transform">📊</span>
               Dashboard

@@ -146,15 +146,15 @@ function MilestoneCard({ milestone }: { milestone: Milestone }) {
 
   return (
     <motion.div
-      className="flex-1 cursor-pointer"
+      className="flex-1 min-w-0 cursor-pointer"
       whileHover={{ x: 4 }}
       transition={{ duration: 0.2 }}
       onClick={handleClick}
     >
       <Card hover>
-        <div className="flex items-start justify-between mb-2">
-          <div>
-            <h3 className="text-sm font-semibold text-white">
+        <div className="flex items-start justify-between mb-2 gap-2">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-white break-words">
               {milestone.title}
             </h3>
             {milestone.date && (
