@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { getOrCreateUserId } from "@/lib/user";
+import { BrainMark } from "@/components/ui/BrainMark";
 
 const navLinks = [
   { href: "/upload", label: "Upload", icon: "📤" },
@@ -33,10 +34,14 @@ export const Navbar: React.FC = () => {
     <nav className="fixed top-0 left-0 right-0 z-50 h-16 bg-dark-800/80 backdrop-blur-xl border-b border-dark-400/30">
       <div className="max-w-screen-xl mx-auto h-full flex items-center justify-between px-6">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-primary-500/20 group-hover:shadow-primary-500/40 transition-shadow">
-            M
-          </div>
+        <Link href="/" className="flex items-center gap-2.5 group">
+          <BrainMark
+            className="w-8 h-8 shrink-0 transition-transform group-hover:scale-110"
+            glow="sm"
+            gradientId="brainGradientNav"
+            strokeWidth={1.8}
+            nodes={false}
+          />
           <span className="text-lg font-bold bg-gradient-to-r from-white to-dark-100 bg-clip-text text-transparent hidden sm:block">
             MemoryVerse
           </span>

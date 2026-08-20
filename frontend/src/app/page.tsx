@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import AetherBackground from "@/components/ui/aether-flow-hero";
+import { BrainMark } from "@/components/ui/BrainMark";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -63,10 +64,10 @@ export default function HomePage() {
             variants={fadeUp}
             initial="hidden"
             animate="show"
-            className="relative z-10 w-20 h-20 rounded-2xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white text-3xl font-bold shadow-2xl shadow-primary-500/30 mb-8"
+            className="relative z-10 mb-8"
             whileHover={{ scale: 1.1, rotate: 5 }}
           >
-            M
+            <BrainMark className="w-28 h-28" glow="lg" gradientId="brainGradientHero" />
           </motion.div>
 
           {/* Headline */}
